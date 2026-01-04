@@ -1,0 +1,27 @@
+{
+  "sections": [
+    {
+      "id": "wallA",
+      "game": "htmlColorsWall",
+      "title": "HTML colors wall",
+      "size": 33.333
+    },
+    {
+      "id": "hexA",
+      "game": "hex015Picker",
+      "title": "0–15 dials",
+      "size": 33.333
+    },
+    {
+      "id": "noiseA",
+      "game": "noisePalette",
+      "title": "noise palette",
+      "size": 33.333
+    }
+  ],
+  "responsiveMode": {
+    "desktop": "dvh",
+    "mobile": "dvh",
+    "landscapeMobile": "dvw"
+  }
+}
