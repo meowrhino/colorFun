@@ -1,13 +1,15 @@
 import { toast, copyText, hexToRgb, rgbToHex, rgbToHsl, hslToRgb, clamp } from '../js/utils.js';
 
 export const id = 'noisePalette';
+const COLOR_EVENT = 'colorfun:lastColor';
 
 export function mount(rootEl, ctx){
   const state = {
     noise: 35,
     type: 'pastel',
     n: ctx.mode === 'mini' ? 6 : 9,
-    palette: []
+    palette: [],
+    base: ctx.storage.get('lastColor', '#808080')
   };
 
   rootEl.classList.add('noiseRoot');
@@ -82,8 +84,14 @@ export function mount(rootEl, ctx){
     return lum > 160 ? '#111111' : '#ffffff';
   }
 
-  function gen(){
-    const base = ctx.storage.get('lastColor', '#808080');
+  function randomHex(){
+    const n = Math.floor(Math.random() * 0xffffff);
+    return `#${n.toString(16).padStart(6,'0').toUpperCase()}`;
+  }
+
+  function gen(baseOverride){
+    const base = baseOverride || ctx.storage.get('lastColor', state.base || '#808080');
+    state.base = base;
     const baseHsl = rgbToHsl(hexToRgb(base));
     const noise = state.noise;
     const palette = [];
@@ -123,11 +131,19 @@ export function mount(rootEl, ctx){
     }
   }
 
-  function reroll(){ gen(); render(); }
+  function reroll(newBase = false){
+    const base = newBase ? randomHex() : null;
+    if(base){
+      ctx.storage.set('lastColor', base);
+      window.dispatchEvent(new CustomEvent(COLOR_EVENT, { detail: { hex: base, source: id } }));
+    }
+    gen(base || undefined);
+    render();
+  }
 
   elNoise.addEventListener('input', (e)=>{ e.stopPropagation(); state.noise = Number(elNoise.value); reroll(); });
   elType.addEventListener('change', (e)=>{ e.stopPropagation(); state.type = elType.value; reroll(); });
-  btn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); reroll(); });
+  btn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); reroll(true); });
 
   reroll();
 

@@ -47,16 +47,14 @@ button,input,select,textarea{font-family:inherit}
   min-height:100dvh;
   display:grid;
   grid-template-columns:minmax(280px,1fr) minmax(320px,1.2fr);
+  grid-template-rows:1fr;
+  align-content:stretch;
   gap:12px;
   padding:12px;
 }
 .homePane{
   min-height:0;
   background:transparent;
-}
-.homeMount{
-  height:100%;
-  min-height:0;
 }
 @media (max-width: 900px){
   .homeFusion{
@@ -254,6 +252,7 @@ small{color:var(--muted);}
 .pickerRoot--mini [data-hex-wrap],
 .pickerRoot--mini .pickerGroup--words{display:none;}
 .pickerRoot--mini .pickerGroup--dials{display:contents;}
+.pickerRoot--mini{display:contents;}
 .pickerToggle{
   display:inline-flex;
   align-items:center;

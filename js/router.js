@@ -36,12 +36,8 @@ export async function mountHome({ data, viewportUnit }){
   }
 
   main.innerHTML = `
-    <section class="homePane homePane--picker">
-      <div class="homeMount" data-mount="picker"></div>
-    </section>
-    <section class="homePane homePane--noise">
-      <div class="homeMount" data-mount="noise"></div>
-    </section>
+    <section class="homePane homePane--picker" data-mount="picker"></section>
+    <section class="homePane homePane--noise" data-mount="noise"></section>
   `;
 
   const pickerEl = main.querySelector('[data-mount="picker"]');

@@ -1,6 +1,7 @@
 import { toast, copyText, clamp, hexToRgb } from '../js/utils.js';
 
 export const id = 'hex015Picker';
+const COLOR_EVENT = 'colorfun:lastColor';
 
 export function mount(rootEl, ctx){
   const groups = (ctx.data.htmlNamed?.groups || []).map(g=>({value:g.group,label:g.label, colors:g.colors}));
@@ -27,7 +28,8 @@ export function mount(rootEl, ctx){
   };
 
   rootEl.classList.add('pickerRoot');
-  if(ctx.mode === 'mini') rootEl.classList.add('pickerRoot--mini');
+  const isMini = ctx.mode === 'mini';
+  if(isMini) rootEl.classList.add('pickerRoot--mini');
   rootEl.innerHTML = `
     <div class="pickerBody">
       <div class="pickerGroup pickerGroup--hex pickerHexWrap" data-hex-wrap>
@@ -101,7 +103,12 @@ export function mount(rootEl, ctx){
   }
 
   function applyTone(hex){
-    rootEl.style.background = hex;
+    if(isMini){
+      document.body.style.backgroundColor = hex;
+      rootEl.style.background = 'transparent';
+    }else{
+      rootEl.style.background = hex;
+    }
     const [rr,gg,bb] = hexToRgb(hex);
     const lum = (rr * 0.299 + gg * 0.587 + bb * 0.114);
     const isLight = lum > 165;
@@ -162,6 +169,19 @@ export function mount(rootEl, ctx){
     elCopy.classList.add('pickerHex--header');
     topbarRight.appendChild(hexWrap);
   }
+
+  function onExternalColor(e){
+    if(e.detail?.source === id) return;
+    const nextHex = normalizeHex(e.detail?.hex);
+    if(!nextHex) return;
+    state.lastColor = nextHex;
+    const [rr,gg,bb] = hexToRgb(nextHex);
+    state.r = rr;
+    state.g = gg;
+    state.b = bb;
+    render();
+  }
+  window.addEventListener(COLOR_EVENT, onExternalColor);
 
   const onDial = ()=>{
     state.r = Number(r.value);
