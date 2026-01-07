@@ -43,6 +43,27 @@ button,input,select,textarea{font-family:inherit}
 .topbarRight{display:flex;align-items:center;gap:10px;}
 .home{height:100dvh;display:flex;flex-direction:column;gap:12px;padding:12px;}
 .home.horizontal{height:100dvh;flex-direction:row;overflow-x:auto;scroll-snap-type:x mandatory;}
+.homeFusion{
+  min-height:100dvh;
+  display:grid;
+  grid-template-columns:minmax(280px,1fr) minmax(320px,1.2fr);
+  gap:12px;
+  padding:12px;
+}
+.homePane{
+  min-height:0;
+  background:transparent;
+}
+.homeMount{
+  height:100%;
+  min-height:0;
+}
+@media (max-width: 900px){
+  .homeFusion{
+    grid-template-columns:1fr;
+    grid-auto-rows:minmax(320px,auto);
+  }
+}
 .slice{
   background:var(--card);
   border:0;
@@ -232,6 +253,7 @@ small{color:var(--muted);}
 .pickerRange{width:100%;max-width:360px;accent-color:currentColor;justify-self:start;}
 .pickerRoot--mini [data-hex-wrap],
 .pickerRoot--mini .pickerGroup--words{display:none;}
+.pickerRoot--mini .pickerGroup--dials{display:contents;}
 .pickerToggle{
   display:inline-flex;
   align-items:center;
@@ -293,15 +315,38 @@ small{color:var(--muted);}
   min-height:100%;
   padding:16px;
   display:grid;
-  gap:14px;
+  place-items:center;
 }
-.noiseHeader{display:flex;align-items:center;justify-content:flex-end;gap:12px;}
+.noiseBody{
+  width:min(860px,100%);
+  display:grid;
+  gap:16px;
+  justify-items:center;
+}
+.noiseHeader{
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:12px;
+  width:100%;
+  max-width:640px;
+}
+.noiseGroup{
+  display:grid;
+  gap:10px;
+  padding:12px;
+  background:rgba(255,255,255,.4);
+  max-width:640px;
+  width:100%;
+}
+.noiseGroup--base{
+  justify-items:center;
+  text-align:center;
+}
 .noiseControls{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
   gap:12px;
-  max-width:620px;
-  width:100%;
 }
 .noiseControl{display:grid;gap:6px;font-size:13px;}
 .noiseSelect{
@@ -316,6 +361,7 @@ small{color:var(--muted);}
   grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
   gap:0;
   min-height:260px;
+  width:100%;
 }
 .noiseChip{
   border:0;

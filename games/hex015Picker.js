@@ -35,7 +35,7 @@ export function mount(rootEl, ctx){
         <div class="pickerExpanded mono" data-expanded></div>
       </div>
 
-      <div class="pickerGroup">
+      <div class="pickerGroup pickerGroup--dials">
         <div data-dials class="pickerDials">
           <div class="pickerRow">
             <label>R</label>

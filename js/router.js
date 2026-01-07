@@ -25,8 +25,7 @@ export async function mountHome({ data, viewportUnit }){
   const main = document.getElementById('home');
   if(!main) return;
 
-  if(viewportUnit === 'dvw') main.classList.add('horizontal');
-  else main.classList.remove('horizontal');
+  main.className = 'homeFusion';
 
   const storage = storageNS('colorPlayground');
   if(!storage.get('lastColor')){
@@ -36,51 +35,34 @@ export async function mountHome({ data, viewportUnit }){
     storage.set('lastColor', hex);
   }
 
-  main.innerHTML = '';
-  for(const s of data.home.sections){
-    const slice = document.createElement('section');
-    slice.className = 'slice';
+  main.innerHTML = `
+    <section class="homePane homePane--picker">
+      <div class="homeMount" data-mount="picker"></div>
+    </section>
+    <section class="homePane homePane--noise">
+      <div class="homeMount" data-mount="noise"></div>
+    </section>
+  `;
 
-    if(viewportUnit === 'dvh'){
-      slice.style.height = `${s.size}dvh`;
-    }else{
-      slice.style.width = `${s.size}dvw`;
-    }
+  const pickerEl = main.querySelector('[data-mount="picker"]');
+  const noiseEl = main.querySelector('[data-mount="noise"]');
 
-    slice.innerHTML = `
-      <div class="sliceTitle">
-        <h2>${escapeHtml(s.title || s.game)}</h2>
-        <div class="sub" role="button" tabindex="0" data-open>${s.game}</div>
-      </div>
-      <div class="panel" data-mount></div>
-    `;
-
-    const openEl = slice.querySelector('[data-open]');
-    if(openEl){
-      const go = ()=>{
-        location.href = `./game.html?game=${encodeURIComponent(s.game)}&instance=${encodeURIComponent(s.id)}`;
-      };
-      openEl.addEventListener('click', (e)=>{
-        e.preventDefault();
-        e.stopPropagation();
-        go();
-      });
-      openEl.addEventListener('keydown', (e)=>{
-        if(e.key === 'Enter' || e.key === ' '){
-          e.preventDefault();
-          go();
-        }
-      });
-    }
-
-    main.appendChild(slice);
-    const mountEl = slice.querySelector('[data-mount]');
-    await mountGameInto(mountEl, {
+  if(pickerEl){
+    await mountGameInto(pickerEl, {
       data,
       viewportUnit,
       mode:'mini',
-      instanceId:s.id,
-      gameId:s.game,
+      instanceId:'homePicker',
+      gameId:'hex015Picker',
+    });
+  }
+  if(noiseEl){
+    await mountGameInto(noiseEl, {
+      data,
+      viewportUnit,
+      mode:'full',
+      instanceId:'homeNoise',
+      gameId:'noisePalette',
     });
   }
 }
