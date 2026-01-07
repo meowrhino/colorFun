@@ -15,7 +15,6 @@ export function mount(rootEl, ctx){
 
   rootEl.innerHTML = `
     <div class="noiseHeader">
-      <div class="noiseTitle">noise palette</div>
       <button data-reroll class="btn" type="button">reroll</button>
     </div>
 
@@ -36,8 +35,8 @@ export function mount(rootEl, ctx){
       </div>
     </div>
 
+    <div class="noiseMeta mono">base: <span data-base></span></div>
     <div data-grid class="noiseGrid"></div>
-    <div class="noiseBase mono">base: <span data-base></span></div>
   `;
 
   const grid = rootEl.querySelector('[data-grid]');
@@ -46,6 +45,13 @@ export function mount(rootEl, ctx){
   const elType = rootEl.querySelector('[data-type]');
   const elBase = rootEl.querySelector('[data-base]');
   const btn = rootEl.querySelector('[data-reroll]');
+  const topbarRight = document.getElementById('topbarRight');
+  const header = rootEl.querySelector('.noiseHeader');
+
+  if(ctx.mode === 'full' && topbarRight && header){
+    topbarRight.appendChild(btn);
+    header.remove();
+  }
 
   function typeAdjust([h,s,l], type){
     if(type === 'pastel'){

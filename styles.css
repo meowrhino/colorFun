@@ -40,8 +40,9 @@ button,input,select,textarea{font-family:inherit}
 .brand{font-weight:800;letter-spacing:.4px;font-family:var(--display);}
 .hint{font-size:12px;color:var(--muted)}
 .spacer{flex:1}
-.home{height:calc(100dvh - 56px);display:flex;flex-direction:column;gap:12px;padding:12px;}
-.home.horizontal{height:calc(100dvh - 56px);flex-direction:row;overflow-x:auto;scroll-snap-type:x mandatory;}
+.topbarRight{display:flex;align-items:center;gap:10px;}
+.home{height:100dvh;display:flex;flex-direction:column;gap:12px;padding:12px;}
+.home.horizontal{height:100dvh;flex-direction:row;overflow-x:auto;scroll-snap-type:x mandatory;}
 .slice{
   background:var(--card);
   border:0;
@@ -50,13 +51,13 @@ button,input,select,textarea{font-family:inherit}
   padding:var(--pad);
   position:relative;
   overflow:hidden;
-  cursor:pointer;
+  cursor:default;
   user-select:none;
 }
 .home.horizontal .slice{scroll-snap-align:start;flex:0 0 auto;}
 .sliceTitle{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px;}
 .sliceTitle h2{margin:0;font-size:15px;font-weight:800;font-family:var(--display);}
-.sliceTitle .sub{font-size:11px;color:var(--muted);font-family:var(--mono);}
+.sliceTitle .sub{font-size:11px;color:var(--muted);font-family:var(--mono);cursor:pointer;}
 .gameRoot{height:calc(100dvh - 56px);padding:12px;}
 .gameRoot--fullbleed{padding:0;}
 .panel{
@@ -133,7 +134,6 @@ small{color:var(--muted);}
   padding:0 12px;
 }
 .wallSelect:focus-visible{outline:2px solid currentColor;outline-offset:4px;}
-.wallFull .wallTitle{position:fixed;top:64px;left:0;right:0;z-index:5;}
 .wallMini .wallTitle{position:static;margin-bottom:8px;}
 .wallGrid{
   display:grid;
@@ -165,11 +165,43 @@ small{color:var(--muted);}
   min-height:100%;
   padding:16px;
   display:grid;
-  gap:16px;
+  place-items:center;
   background:var(--picker-bg,#ddd);
   color:var(--picker-fg,#111);
 }
-.pickerHeader{display:flex;flex-direction:column;gap:6px;}
+.pickerBody{
+  width:min(720px,100%);
+  display:grid;
+  gap:16px;
+  justify-items:center;
+}
+.pickerGroup{
+  display:grid;
+  gap:12px;
+  padding:12px;
+  background:var(--picker-group-bg,rgba(255,255,255,.4));
+  max-width:560px;
+  width:100%;
+}
+.pickerGroup--hex{
+  justify-items:center;
+  text-align:center;
+}
+.pickerHexWrap{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+}
+.pickerHexWrap--header{
+  align-items:flex-end;
+  text-align:right;
+  gap:2px;
+  background:transparent;
+  padding:0;
+  max-width:none;
+  width:auto;
+}
 .pickerHex{
   font-family:var(--display);
   font-size:clamp(32px,8vw,84px);
@@ -181,6 +213,10 @@ small{color:var(--muted);}
   padding:0;
   cursor:pointer;
 }
+.pickerHex--header{
+  font-size:clamp(20px,4vw,40px);
+  line-height:1;
+}
 .pickerExpanded{
   font-family:var(--mono);
   font-size:12px;
@@ -189,15 +225,59 @@ small{color:var(--muted);}
   opacity:.8;
 }
 .pickerControls{display:grid;gap:14px;}
-.pickerDials{display:grid;gap:12px;}
-.pickerRow{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:10px;}
+.pickerDials{display:grid;gap:12px;max-width:520px;width:100%;}
+.pickerRow{display:grid;grid-template-columns:26px 1fr auto;align-items:center;gap:12px;}
 .pickerRow label{font-weight:700;font-size:14px;}
 .pickerRow output{font-family:var(--mono);font-size:12px;}
-.pickerRange{width:100%;accent-color:currentColor;}
-.pickerToggle{display:flex;align-items:center;gap:8px;font-size:13px;}
+.pickerRange{width:100%;max-width:360px;accent-color:currentColor;justify-self:start;}
+.pickerRoot--mini [data-hex-wrap],
+.pickerRoot--mini .pickerGroup--words{display:none;}
+.pickerToggle{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  position:relative;
+}
+.pickerToggle input{
+  position:absolute;
+  opacity:0;
+  width:1px;
+  height:1px;
+  margin:0;
+}
+.pickerToggleTrack{
+  width:40px;
+  height:22px;
+  background:var(--picker-switch-bg,rgba(0,0,0,.25));
+  padding:3px;
+  display:inline-flex;
+  align-items:center;
+  transition:background .2s ease;
+}
+.pickerToggleTrack::after{
+  content:"";
+  width:16px;
+  height:16px;
+  background:var(--picker-switch-knob,#fff);
+  transform:translateX(0);
+  transition:transform .2s ease;
+}
+.pickerToggle input:checked + .pickerToggleTrack{
+  background:var(--picker-switch-on,rgba(0,0,0,.6));
+}
+.pickerToggle input:checked + .pickerToggleTrack::after{
+  transform:translateX(18px);
+}
+.pickerToggle input:focus-visible + .pickerToggleTrack{
+  outline:2px solid currentColor;
+  outline-offset:2px;
+}
 .pickerWords{display:grid;gap:10px;}
 .pickerNote{font-size:12px;opacity:.75;}
-.pickerSelects{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;}
+.pickerSelects{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;max-width:520px;}
 .pickerSelect{
   border:0;
   background:var(--picker-control-bg,rgba(255,255,255,.7));
@@ -215,15 +295,13 @@ small{color:var(--muted);}
   display:grid;
   gap:14px;
 }
-.noiseHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;}
-.noiseTitle{
-  font-family:var(--display);
-  font-size:clamp(22px,4vw,40px);
-}
+.noiseHeader{display:flex;align-items:center;justify-content:flex-end;gap:12px;}
 .noiseControls{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
   gap:12px;
+  max-width:620px;
+  width:100%;
 }
 .noiseControl{display:grid;gap:6px;font-size:13px;}
 .noiseSelect{
@@ -232,7 +310,7 @@ small{color:var(--muted);}
   padding:10px 12px;
   font-family:var(--sans);
 }
-.noiseRange{width:100%;accent-color:var(--fg);}
+.noiseRange{width:100%;max-width:360px;accent-color:var(--fg);}
 .noiseGrid{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
@@ -255,4 +333,4 @@ small{color:var(--muted);}
   animation:tileIn .45s ease both;
   animation-delay:calc(var(--i,0) * 30ms);
 }
-.noiseBase{font-family:var(--mono);font-size:12px;opacity:.75;}
+.noiseMeta{font-family:var(--mono);font-size:12px;opacity:.75;}

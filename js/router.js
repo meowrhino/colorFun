@@ -50,15 +50,28 @@ export async function mountHome({ data, viewportUnit }){
     slice.innerHTML = `
       <div class="sliceTitle">
         <h2>${escapeHtml(s.title || s.game)}</h2>
-        <div class="sub">${s.game}</div>
+        <div class="sub" role="button" tabindex="0" data-open>${s.game}</div>
       </div>
       <div class="panel" data-mount></div>
     `;
 
-    slice.addEventListener('click', (e)=>{
-      if(e.defaultPrevented) return;
-      location.href = `./game.html?game=${encodeURIComponent(s.game)}&instance=${encodeURIComponent(s.id)}`;
-    });
+    const openEl = slice.querySelector('[data-open]');
+    if(openEl){
+      const go = ()=>{
+        location.href = `./game.html?game=${encodeURIComponent(s.game)}&instance=${encodeURIComponent(s.id)}`;
+      };
+      openEl.addEventListener('click', (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        go();
+      });
+      openEl.addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter' || e.key === ' '){
+          e.preventDefault();
+          go();
+        }
+      });
+    }
 
     main.appendChild(slice);
     const mountEl = slice.querySelector('[data-mount]');
@@ -76,11 +89,22 @@ export async function mountFullGame({ data, viewportUnit }){
   const { game, instance } = getQuery();
   const root = document.getElementById('gameRoot');
   const titleEl = document.getElementById('gameTitle');
+  const topbarRight = document.getElementById('topbarRight');
   if(!root || !game){
     if(root) root.innerHTML = '<div class="panel">Falta ?game=</div>';
     return;
   }
-  if(titleEl) titleEl.textContent = game;
+  if(titleEl){
+    const hideTitleGames = new Set(['htmlColorsWall','noisePalette','hex015Picker']);
+    if(hideTitleGames.has(game)){
+      titleEl.textContent = '';
+      titleEl.style.display = 'none';
+    }else{
+      titleEl.textContent = game;
+      titleEl.style.display = '';
+    }
+  }
+  if(topbarRight) topbarRight.innerHTML = '';
 
   root.dataset.game = game;
   root.classList.toggle('gameRoot--fullbleed', game === 'htmlColorsWall');

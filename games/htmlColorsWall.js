@@ -17,8 +17,15 @@ export function mount(rootEl, ctx){
     <div data-grid class="wallGrid"></div>
   `;
 
+  const titleWrap = rootEl.querySelector('.wallTitle');
   const sel = rootEl.querySelector('[data-group]');
   const grid = rootEl.querySelector('[data-grid]');
+  const topbarRight = document.getElementById('topbarRight');
+
+  if(ctx.mode === 'full' && topbarRight){
+    topbarRight.appendChild(sel);
+    if(titleWrap) titleWrap.remove();
+  }
 
   for(let i=0;i<groups.length;i++){
     const g = groups[i];

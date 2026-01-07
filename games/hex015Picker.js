@@ -5,58 +5,74 @@ export const id = 'hex015Picker';
 export function mount(rootEl, ctx){
   const groups = (ctx.data.htmlNamed?.groups || []).map(g=>({value:g.group,label:g.label, colors:g.colors}));
 
+  function normalizeHex(hex){
+    const raw = String(hex || '').replace('#','').trim();
+    if(raw.length === 3){
+      const h = raw.toUpperCase();
+      return `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}`;
+    }
+    if(raw.length === 6) return `#${raw.toUpperCase()}`;
+    return '#808080';
+  }
+
+  function hexByte(n){ return clamp(n,0,255).toString(16).padStart(2,'0').toUpperCase(); }
+
+  const seedHex = normalizeHex(ctx.storage.get('lastColor', '#808080'));
+  const [seedR, seedG, seedB] = hexToRgb(seedHex);
   const state = {
-    r: 15, g: 0, b: 10,
+    r: seedR, g: seedG, b: seedB,
     wordsMode: false,
     group: '',
-    lastColor: ctx.storage.get('lastColor', '#808080')
+    lastColor: seedHex
   };
 
   rootEl.classList.add('pickerRoot');
+  if(ctx.mode === 'mini') rootEl.classList.add('pickerRoot--mini');
   rootEl.innerHTML = `
-    <div class="pickerHeader">
-      <button data-copy class="pickerHex" type="button">#---</button>
-      <div class="pickerExpanded mono" data-expanded></div>
-    </div>
+    <div class="pickerBody">
+      <div class="pickerGroup pickerGroup--hex pickerHexWrap" data-hex-wrap>
+        <button data-copy class="pickerHex" type="button">#---</button>
+        <div class="pickerExpanded mono" data-expanded></div>
+      </div>
 
-    <div class="pickerControls">
-      <div data-dials class="pickerDials">
-        <div class="pickerRow">
-          <label>R</label>
-          <input data-r class="pickerRange" type="range" min="0" max="15" value="15" aria-label="R"/>
-          <output class="mono" data-rv>--</output>
-        </div>
-        <div class="pickerRow">
-          <label>G</label>
-          <input data-g class="pickerRange" type="range" min="0" max="15" value="0" aria-label="G"/>
-          <output class="mono" data-gv>--</output>
-        </div>
-        <div class="pickerRow">
-          <label>B</label>
-          <input data-b class="pickerRange" type="range" min="0" max="15" value="10" aria-label="B"/>
-          <output class="mono" data-bv>--</output>
+      <div class="pickerGroup">
+        <div data-dials class="pickerDials">
+          <div class="pickerRow">
+            <label>R</label>
+            <input data-r class="pickerRange" type="range" min="0" max="255" value="${state.r}" aria-label="R"/>
+            <output class="mono" data-rv>--</output>
+          </div>
+          <div class="pickerRow">
+            <label>G</label>
+            <input data-g class="pickerRange" type="range" min="0" max="255" value="${state.g}" aria-label="G"/>
+            <output class="mono" data-gv>--</output>
+          </div>
+          <div class="pickerRow">
+            <label>B</label>
+            <input data-b class="pickerRange" type="range" min="0" max="255" value="${state.b}" aria-label="B"/>
+            <output class="mono" data-bv>--</output>
+          </div>
         </div>
       </div>
 
-      <label class="pickerToggle">
-        <input data-words type="checkbox"/>
-        palabras
-      </label>
-    </div>
-
-    <div data-wordsPanel class="pickerWords" style="display:none;">
-      <div class="pickerNote mono">modo palabras (en v1 real: ~10% del slice)</div>
-      <div class="pickerSelects">
-        <select data-group class="pickerSelect">
-          <option value="">elige grupo</option>
-        </select>
-        <select data-color class="pickerSelect" disabled>
-          <option value="">elige color</option>
-        </select>
+      <div class="pickerGroup pickerGroup--words">
+        <label class="pickerToggle">
+          <input data-words type="checkbox"/>
+          <span class="pickerToggleTrack" aria-hidden="true"></span>
+          <span class="pickerToggleLabel">palabras</span>
+        </label>
+        <div data-wordsPanel class="pickerWords" style="display:none;">
+          <div class="pickerSelects">
+            <select data-group class="pickerSelect">
+              <option value="">elige grupo</option>
+            </select>
+            <select data-color class="pickerSelect" disabled>
+              <option value="">elige color</option>
+            </select>
+          </div>
+        </div>
       </div>
     </div>
-
-    <div class="pickerHint mono">click en el HEX para copiar</div>
   `;
 
   const elCopy = rootEl.querySelector('[data-copy]');
@@ -64,6 +80,8 @@ export function mount(rootEl, ctx){
   const elWords = rootEl.querySelector('[data-words]');
   const elDials = rootEl.querySelector('[data-dials]');
   const wordsPanel = rootEl.querySelector('[data-wordsPanel]');
+  const topbarRight = document.getElementById('topbarRight');
+  const hexWrap = rootEl.querySelector('[data-hex-wrap]');
 
   const r = rootEl.querySelector('[data-r]');
   const g = rootEl.querySelector('[data-g]');
@@ -82,11 +100,6 @@ export function mount(rootEl, ctx){
     selGroup.appendChild(opt);
   }
 
-  function hexDigit(n){ return clamp(n,0,15).toString(16).toUpperCase(); }
-  function expand(hex3){
-    const h = hex3.replace('#','');
-    return `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}`.toUpperCase();
-  }
   function applyTone(hex){
     rootEl.style.background = hex;
     const [rr,gg,bb] = hexToRgb(hex);
@@ -94,35 +107,61 @@ export function mount(rootEl, ctx){
     const isLight = lum > 165;
     rootEl.style.color = isLight ? '#111111' : '#ffffff';
     rootEl.style.setProperty('--picker-control-bg', isLight ? 'rgba(255,255,255,.7)' : 'rgba(0,0,0,.3)');
+    rootEl.style.setProperty('--picker-group-bg', isLight ? 'rgba(255,255,255,.4)' : 'rgba(0,0,0,.35)');
+    rootEl.style.setProperty('--picker-switch-bg', isLight ? 'rgba(0,0,0,.25)' : 'rgba(255,255,255,.25)');
+    rootEl.style.setProperty('--picker-switch-on', isLight ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.7)');
+    rootEl.style.setProperty('--picker-switch-knob', isLight ? '#ffffff' : '#111111');
+    if(hexWrap){
+      const inHeader = topbarRight && hexWrap.parentElement === topbarRight;
+      hexWrap.style.color = inHeader ? '#111111' : (isLight ? '#111111' : '#ffffff');
+    }
+  }
+
+  function syncDialsFromState(){
+    r.value = state.r;
+    g.value = state.g;
+    b.value = state.b;
+    rv.textContent = state.r;
+    gv.textContent = state.g;
+    bv.textContent = state.b;
   }
 
   function render(){
+    let currentHex = '';
     if(!state.wordsMode){
-      const hex3 = `#${hexDigit(state.r)}${hexDigit(state.g)}${hexDigit(state.b)}`;
-      const hex6 = expand(hex3);
-      elCopy.textContent = hex3;
-      elExpanded.textContent = hex6;
-      rv.textContent = hexDigit(state.r);
-      gv.textContent = hexDigit(state.g);
-      bv.textContent = hexDigit(state.b);
-      applyTone(hex6);
-      state.lastColor = hex6;
-      ctx.storage.set('lastColor', hex6);
+      currentHex = `#${hexByte(state.r)}${hexByte(state.g)}${hexByte(state.b)}`;
+      syncDialsFromState();
+      elCopy.textContent = currentHex;
+      elExpanded.textContent = `rgb(${state.r}, ${state.g}, ${state.b})`;
+      applyTone(currentHex);
+      state.lastColor = currentHex;
+      ctx.storage.set('lastColor', currentHex);
     }else{
-      const current = state.lastColor || '#222222';
-      elCopy.textContent = current;
-      elExpanded.textContent = current.length===4 ? expand(current) : current;
-      applyTone(current);
+      currentHex = normalizeHex(state.lastColor || '#222222');
+      const [rr,gg,bb] = hexToRgb(currentHex);
+      state.r = rr;
+      state.g = gg;
+      state.b = bb;
+      syncDialsFromState();
+      elCopy.textContent = currentHex;
+      elExpanded.textContent = `rgb(${state.r}, ${state.g}, ${state.b})`;
+      applyTone(currentHex);
     }
   }
 
   async function copyCurrent(){
-    const v = elExpanded.textContent || elCopy.textContent;
+    const v = elCopy.textContent || '';
     await copyText(v);
     toast(`copiado ${v}`);
   }
 
   elCopy.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); copyCurrent(); });
+
+  if(ctx.mode === 'full' && topbarRight && hexWrap){
+    hexWrap.classList.add('pickerHexWrap--header');
+    elCopy.classList.add('pickerHex--header');
+    topbarRight.appendChild(hexWrap);
+  }
 
   const onDial = ()=>{
     state.r = Number(r.value);

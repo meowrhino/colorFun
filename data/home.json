@@ -9,7 +9,7 @@
     {
       "id": "hexA",
       "game": "hex015Picker",
-      "title": "0–15 dials",
+      "title": "00–FF dials",
       "size": 33.333
     },
     {
