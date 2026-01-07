@@ -66,82 +66,66 @@ async function init() {
 // ============================================
 function renderUI() {
   const main = document.getElementById('colorPlayground');
+  const initialHex = rgbToHex([state.r, state.g, state.b]);
   
   main.innerHTML = `
     <div class="playgroundColumn">
       
-      <!-- BLOQUE 1: Diales RGB + Reroll + Selector de colores -->
+      <!-- BLOQUE: Diales RGB + Reroll + Selector de colores + Noise -->
       <section class="playgroundBlock playgroundBlock--color">
         <div class="blockHeader">
-          <h2 class="blockTitle">Color Base</h2>
-          <button id="rerollBtn" class="btn btnSmall" type="button">reroll</button>
-        </div>
-        
-        <div class="colorDisplay">
-          <button id="colorHex" class="colorHexBtn" type="button">#808080</button>
-          <div id="colorRgba" class="colorRgba mono">rgb(128, 128, 128)</div>
+          <div class="btnRow">
+            <button id="rerollBtn" class="btn btnSmall" type="button">new</button>
+            <div class="btnSelect">
+              <button class="btn btnSmall" type="button">color by name</button>
+              <select id="namedColorSelect" class="btnSelectControl" aria-label="color by name">
+                <option value="">color by name</option>
+              </select>
+            </div>
+            <div class="btnSelect">
+              <button id="typeBtn" class="btn btnSmall" type="button">${state.noiseType}</button>
+              <select id="noiseType" class="btnSelectControl" aria-label="noise type">
+                <option value="pastel">pastel</option>
+                <option value="neon">neon</option>
+                <option value="earthy">earthy</option>
+                <option value="cold">cold</option>
+                <option value="warm">warm</option>
+              </select>
+            </div>
+            <button id="pasteBtn" class="btn btnSmall" type="button">paste</button>
+          </div>
         </div>
 
         <div class="dialGroup">
           <div class="dialRow">
             <label class="dialLabel">R</label>
-            <input id="dialR" class="dial" type="range" min="0" max="255" value="128" aria-label="Red"/>
-            <output id="valR" class="dialValue mono">128</output>
+            <input id="dialR" class="dial" type="range" min="0" max="255" value="${state.r}" aria-label="Red"/>
+            <output id="valR" class="dialValue mono">${state.r}</output>
           </div>
           <div class="dialRow">
             <label class="dialLabel">G</label>
-            <input id="dialG" class="dial" type="range" min="0" max="255" value="128" aria-label="Green"/>
-            <output id="valG" class="dialValue mono">128</output>
+            <input id="dialG" class="dial" type="range" min="0" max="255" value="${state.g}" aria-label="Green"/>
+            <output id="valG" class="dialValue mono">${state.g}</output>
           </div>
           <div class="dialRow">
             <label class="dialLabel">B</label>
-            <input id="dialB" class="dial" type="range" min="0" max="255" value="128" aria-label="Blue"/>
-            <output id="valB" class="dialValue mono">128</output>
+            <input id="dialB" class="dial" type="range" min="0" max="255" value="${state.b}" aria-label="Blue"/>
+            <output id="valB" class="dialValue mono">${state.b}</output>
           </div>
-        </div>
-
-        <div class="colorSelector">
-          <label class="selectorLabel">Color por nombre:</label>
-          <select id="namedColorSelect" class="namedSelect">
-            <option value="">-- elige un color --</option>
-          </select>
-        </div>
-      </section>
-
-      <!-- BLOQUE 2: Opciones de Noise -->
-      <section class="playgroundBlock playgroundBlock--noise">
-        <h2 class="blockTitle">Generar Paleta</h2>
-        
-        <div class="noiseControls">
-          <div class="noiseControl">
-            <label class="mono">noise <span id="noiseValue">35</span></label>
-            <input id="noiseRange" class="noiseSlider" type="range" min="0" max="100" value="35"/>
-          </div>
-          <div class="noiseControl">
-            <label class="mono">type</label>
-            <select id="noiseType" class="noiseTypeSelect">
-              <option value="pastel">pastel</option>
-              <option value="neon">neon</option>
-              <option value="earthy">earthy</option>
-              <option value="cold">cold</option>
-              <option value="warm">warm</option>
-            </select>
+          <div class="dialRow">
+            <label class="dialLabel">N</label>
+            <input id="noiseRange" class="dial" type="range" min="0" max="100" value="${state.noise}" aria-label="Noise"/>
+            <output id="valN" class="dialValue mono">${state.noise}</output>
           </div>
         </div>
 
         <div id="paletteGrid" class="paletteGrid"></div>
       </section>
 
-      <!-- BLOQUE 3: Grid de Colores HTML -->
-      <section class="playgroundBlock playgroundBlock--htmlColors">
-        <div class="blockHeader">
-          <h2 class="blockTitle">Colores HTML</h2>
-          <select id="colorGroupSelect" class="groupSelect">
-            <option value="">-- elige grupo --</option>
-          </select>
-        </div>
-        <div id="htmlColorsGrid" class="htmlColorsGrid"></div>
-      </section>
+      <div id="colorInfo" class="colorInfo">
+        <div id="infoHex" class="mono" data-copy>${initialHex}</div>
+        <div id="infoRgb" class="mono">rgb(${state.r}, ${state.g}, ${state.b})</div>
+      </div>
 
     </div>
   `;
@@ -173,16 +157,13 @@ function attachEventListeners() {
   document.getElementById('rerollBtn').addEventListener('click', () => {
     const randomColor = Math.floor(Math.random() * 0xffffff);
     const hex = '#' + randomColor.toString(16).padStart(6, '0').toUpperCase();
-    const [r, g, b] = hexToRgb(hex);
-    state.r = r;
-    state.g = g;
-    state.b = b;
-    updateColor();
+    applyHex(hex);
   });
 
   // Copiar color hex
-  document.getElementById('colorHex').addEventListener('click', async () => {
-    const hex = document.getElementById('colorHex').textContent;
+  const infoHex = document.getElementById('infoHex');
+  infoHex.addEventListener('click', async () => {
+    const hex = infoHex.textContent;
     await copyText(hex);
     toast(`copiado ${hex}`);
   });
@@ -192,36 +173,47 @@ function attachEventListeners() {
   populateNamedColorSelect();
   namedColorSelect.addEventListener('change', () => {
     const hex = namedColorSelect.value;
-    if (hex) {
-      const [r, g, b] = hexToRgb(hex);
-      state.r = r;
-      state.g = g;
-      state.b = b;
-      updateColor();
-    }
+    if (hex) applyHex(hex);
   });
 
   // Controles de Noise
   const noiseRange = document.getElementById('noiseRange');
   const noiseType = document.getElementById('noiseType');
+  const typeBtn = document.getElementById('typeBtn');
   
   noiseRange.addEventListener('input', () => {
     state.noise = Number(noiseRange.value);
-    document.getElementById('noiseValue').textContent = state.noise;
+    document.getElementById('valN').textContent = state.noise;
     generatePalette();
   });
   
   noiseType.addEventListener('change', () => {
     state.noiseType = noiseType.value;
+    typeBtn.textContent = state.noiseType;
     generatePalette();
   });
 
-  // Selector de grupo de colores HTML
-  const colorGroupSelect = document.getElementById('colorGroupSelect');
-  populateColorGroups();
-  colorGroupSelect.addEventListener('change', () => {
-    renderHtmlColorsGrid();
+  // Botón Paste
+  document.getElementById('pasteBtn').addEventListener('click', async () => {
+    let text = '';
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      try {
+        text = await navigator.clipboard.readText();
+      } catch (e) {
+        text = '';
+      }
+    }
+    if (!text) text = prompt('Pega un color hex (#RGB o #RRGGBB):', '') || '';
+    const hex = parseHexInput(text);
+    if (!hex) {
+      toast('hex invalido');
+      return;
+    }
+    applyHex(hex);
   });
+
+  noiseType.value = state.noiseType;
+  typeBtn.textContent = state.noiseType;
 }
 
 // ============================================
@@ -234,16 +226,20 @@ function updateColor() {
   storage.set('lastColor', hex);
 
   // Actualizar displays
-  document.getElementById('colorHex').textContent = hex;
-  document.getElementById('colorRgba').textContent = `rgb(${state.r}, ${state.g}, ${state.b})`;
+  const infoHex = document.getElementById('infoHex');
+  const infoRgb = document.getElementById('infoRgb');
+  if (infoHex) infoHex.textContent = hex;
+  if (infoRgb) infoRgb.textContent = `rgb(${state.r}, ${state.g}, ${state.b})`;
   
   // Actualizar valores de los diales
   document.getElementById('dialR').value = state.r;
   document.getElementById('dialG').value = state.g;
   document.getElementById('dialB').value = state.b;
+  document.getElementById('noiseRange').value = state.noise;
   document.getElementById('valR').textContent = state.r;
   document.getElementById('valG').textContent = state.g;
   document.getElementById('valB').textContent = state.b;
+  document.getElementById('valN').textContent = state.noise;
 
   // Actualizar fondo del body
   document.body.style.backgroundColor = hex;
@@ -257,6 +253,24 @@ function updateColor() {
   generatePalette();
 }
 
+function applyHex(hex) {
+  const [r, g, b] = hexToRgb(hex);
+  state.r = r;
+  state.g = g;
+  state.b = b;
+  updateColor();
+}
+
+function parseHexInput(input) {
+  const raw = String(input || '').trim().replace(/^#/, '');
+  if (!raw) return null;
+  if (!/^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(raw)) return null;
+  if (raw.length === 3) {
+    return ('#' + raw.split('').map(c => c + c).join('')).toUpperCase();
+  }
+  return ('#' + raw).toUpperCase();
+}
+
 // ============================================
 // SELECTOR DE COLORES POR NOMBRE
 // ============================================
@@ -264,25 +278,19 @@ function populateNamedColorSelect() {
   const select = document.getElementById('namedColorSelect');
   if (!state.htmlNamedColors || !state.htmlNamedColors.groups) return;
 
-  // Recopilar todos los colores de todos los grupos
-  const allColors = [];
+  select.innerHTML = '<option value="">color by name</option>';
+
   state.htmlNamedColors.groups.forEach(group => {
-    if (group.colors) {
-      group.colors.forEach(color => {
-        allColors.push({ name: color.name, hex: color.hex });
-      });
-    }
-  });
-
-  // Ordenar alfabéticamente
-  allColors.sort((a, b) => a.name.localeCompare(b.name));
-
-  // Agregar opciones al select
-  allColors.forEach(color => {
-    const option = document.createElement('option');
-    option.value = color.hex;
-    option.textContent = color.name;
-    select.appendChild(option);
+    if (!group.colors || group.colors.length === 0) return;
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = group.label || group.group || 'grupo';
+    group.colors.forEach(color => {
+      const option = document.createElement('option');
+      option.value = color.hex;
+      option.textContent = color.name;
+      optgroup.appendChild(option);
+    });
+    select.appendChild(optgroup);
   });
 }
 
@@ -344,74 +352,7 @@ function renderPalette(palette) {
     chip.addEventListener('click', async () => {
       await copyText(hex);
       toast(`copiado ${hex}`);
-      const [r, g, b] = hexToRgb(hex);
-      state.r = r;
-      state.g = g;
-      state.b = b;
-      updateColor();
-    });
-    
-    grid.appendChild(chip);
-  });
-}
-
-// ============================================
-// GRID DE COLORES HTML
-// ============================================
-function populateColorGroups() {
-  const select = document.getElementById('colorGroupSelect');
-  if (!state.htmlNamedColors || !state.htmlNamedColors.groups) return;
-
-  state.htmlNamedColors.groups.forEach((group, index) => {
-    const option = document.createElement('option');
-    option.value = index;
-    option.textContent = group.label || group.group || `grupo ${index + 1}`;
-    select.appendChild(option);
-  });
-
-  // Seleccionar el primer grupo por defecto
-  if (state.htmlNamedColors.groups.length > 0) {
-    select.value = '0';
-    renderHtmlColorsGrid();
-  }
-}
-
-function renderHtmlColorsGrid() {
-  const grid = document.getElementById('htmlColorsGrid');
-  const select = document.getElementById('colorGroupSelect');
-  const groupIndex = Number(select.value);
-  
-  if (isNaN(groupIndex) || !state.htmlNamedColors || !state.htmlNamedColors.groups[groupIndex]) {
-    grid.innerHTML = '<div class="panel">Selecciona un grupo</div>';
-    return;
-  }
-
-  const group = state.htmlNamedColors.groups[groupIndex];
-  const colors = group.colors || [];
-  
-  grid.innerHTML = '';
-  
-  colors.forEach((color, i) => {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'htmlColorChip';
-    chip.style.background = color.hex;
-    chip.style.color = getTextColor(color.hex);
-    chip.style.setProperty('--i', i);
-    chip.title = `${color.name} ${color.hex}`;
-    
-    const label = document.createElement('span');
-    label.textContent = color.name;
-    chip.appendChild(label);
-    
-    chip.addEventListener('click', async () => {
-      await copyText(color.hex);
-      toast(`copiado ${color.hex}`);
-      const [r, g, b] = hexToRgb(color.hex);
-      state.r = r;
-      state.g = g;
-      state.b = b;
-      updateColor();
+      applyHex(hex);
     });
     
     grid.appendChild(chip);

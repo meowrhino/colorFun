@@ -69,7 +69,7 @@ button, input, select, textarea {
 
 .blockHeader {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 12px;
 }
@@ -84,39 +84,8 @@ button, input, select, textarea {
 }
 
 /* ============================================
-   BLOQUE 1: Color Base
+   Diales + color
    ============================================ */
-.colorDisplay {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
-}
-
-.colorHexBtn {
-  font-family: var(--display);
-  font-size: clamp(32px, 6vw, 48px);
-  line-height: 1;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  padding: 0;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.colorHexBtn:hover {
-  transform: scale(1.05);
-}
-
-.colorRgba {
-  font-size: 14px;
-  letter-spacing: 0.1em;
-  opacity: 0.8;
-}
 
 .dialGroup {
   display: flex;
@@ -146,24 +115,28 @@ button, input, select, textarea {
   text-align: right;
 }
 
-.colorSelector {
+/* ============================================
+   Barra de acciones
+   ============================================ */
+.btnRow {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
+  justify-content: flex-end;
+  width: 100%;
 }
 
-.selectorLabel {
-  font-size: 13px;
-  font-weight: 600;
+.btnSelect {
+  position: relative;
+  display: inline-flex;
 }
 
-.namedSelect {
-  border: 0;
-  background: rgba(255, 255, 255, 0.3);
-  padding: 10px 12px;
-  color: inherit;
-  border-radius: 4px;
-  font-size: 14px;
+.btnSelectControl {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 /* ============================================
@@ -197,34 +170,8 @@ button, input, select, textarea {
 }
 
 /* ============================================
-   BLOQUE 2: Generación de Paleta
+   Paleta
    ============================================ */
-.noiseControls {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-.noiseControl {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-}
-
-.noiseSlider {
-  width: 100%;
-  accent-color: currentColor;
-}
-
-.noiseTypeSelect {
-  border: 0;
-  background: rgba(255, 255, 255, 0.3);
-  padding: 10px 12px;
-  color: inherit;
-  border-radius: 4px;
-  font-size: 14px;
-}
 
 .paletteGrid {
   display: grid;
@@ -256,47 +203,23 @@ button, input, select, textarea {
 }
 
 /* ============================================
-   BLOQUE 3: Grid de Colores HTML
+   Info color fija
    ============================================ */
-.groupSelect {
-  border: 0;
-  background: rgba(255, 255, 255, 0.3);
-  padding: 10px 12px;
-  color: inherit;
-  border-radius: 4px;
-  font-size: 14px;
-  max-width: 250px;
-}
-
-.htmlColorsGrid {
+.colorInfo {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 8px;
-}
-
-.htmlColorChip {
-  border: 0;
-  padding: 12px;
-  min-height: 70px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  font-weight: 700;
+  gap: 4px;
+  text-align: right;
   font-size: 12px;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  z-index: 20;
+}
+
+.colorInfo [data-copy] {
   cursor: pointer;
-  border-radius: 4px;
-  transition: transform 0.2s ease;
-  animation: fadeIn 0.4s ease both;
-  animation-delay: calc(var(--i, 0) * 30ms);
-}
-
-.htmlColorChip:hover {
-  transform: scale(1.05);
-}
-
-.htmlColorChip span {
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 /* ============================================
@@ -363,10 +286,6 @@ button, input, select, textarea {
 
   .paletteGrid {
     grid-template-columns: repeat(2, 1fr);
-  }
-
-  .htmlColorsGrid {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   }
 
   .blockHeader {
