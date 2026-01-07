@@ -82,9 +82,10 @@ export async function mountFullGame({ data, viewportUnit }){
   }
   if(titleEl) titleEl.textContent = game;
 
-  root.innerHTML = '<div class="panel" data-mount></div>';
-  const mountEl = root.querySelector('[data-mount]');
-  await mountGameInto(mountEl, {
+  root.dataset.game = game;
+  root.classList.toggle('gameRoot--fullbleed', game === 'htmlColorsWall');
+  root.innerHTML = '';
+  await mountGameInto(root, {
     data,
     viewportUnit,
     mode:'full',

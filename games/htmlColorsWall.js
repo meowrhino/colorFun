@@ -1,47 +1,67 @@
-import { toast, copyText } from '../js/utils.js';
+import { toast, copyText, hexToRgb } from '../js/utils.js';
 
 export const id = 'htmlColorsWall';
 
 export function mount(rootEl, ctx){
   const groups = ctx.data.htmlNamed?.groups || [];
   let groupIndex = 0;
-  let query = '';
+
+  rootEl.classList.add('wallRoot');
+  if(ctx.mode === 'mini') rootEl.classList.add('wallMini');
+  if(ctx.mode === 'full') rootEl.classList.add('wallFull');
 
   rootEl.innerHTML = `
-    <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; margin-bottom:10px;">
-      <input data-q placeholder="buscar…" style="flex:1; padding:10px; border-radius:999px; border:1px solid rgba(255,255,255,.16); background:rgba(0,0,0,.25); color:white; outline:none"/>
-      <button data-next class="btn" type="button">grupo</button>
+    <div class="wallTitle">
+      <select data-group class="wallSelect" aria-label="grupo de colores"></select>
     </div>
-    <div data-meta class="mono" style="font-size:12px; color:rgba(255,255,255,.7); margin-bottom:10px;"></div>
-    <div data-grid class="grid"></div>
+    <div data-grid class="wallGrid"></div>
   `;
 
-  const q = rootEl.querySelector('[data-q]');
-  const nextBtn = rootEl.querySelector('[data-next]');
-  const meta = rootEl.querySelector('[data-meta]');
+  const sel = rootEl.querySelector('[data-group]');
   const grid = rootEl.querySelector('[data-grid]');
 
+  for(let i=0;i<groups.length;i++){
+    const g = groups[i];
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = g.label || g.group || `grupo ${i+1}`;
+    sel.appendChild(opt);
+  }
+
+  function textColor(hex){
+    const [r,g,b] = hexToRgb(hex);
+    const lum = (r * 0.299 + g * 0.587 + b * 0.114);
+    return lum > 160 ? '#111111' : '#ffffff';
+  }
+
   function render(){
+    if(!groups.length){
+      grid.innerHTML = '<div class="panel">sin grupos</div>';
+      return;
+    }
     const group = groups[groupIndex % groups.length];
     const colors = group?.colors || [];
-    const label = group?.label || group?.group || 'group';
+    const label = group?.label || group?.group || 'grupo';
+    sel.value = String(groupIndex % groups.length);
+    sel.setAttribute('aria-label', `grupo de colores: ${label}`);
 
-    const filtered = query
-      ? colors.filter(c => c.name.toLowerCase().includes(query.toLowerCase()))
-      : colors;
-
-    meta.textContent = `${label} · ${filtered.length} colores`;
-
-    const show = ctx.mode === 'mini' ? filtered.slice(0, 48) : filtered;
+    const show = ctx.mode === 'mini' ? colors.slice(0, 18) : colors;
     grid.innerHTML = '';
-    for(const c of show){
+    for(let i=0;i<show.length;i++){
+      const c = show[i];
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'swatch';
-      b.title = `${c.name} ${c.hex}`;
+      b.className = 'wallChip';
       b.style.background = c.hex;
+      b.style.color = textColor(c.hex);
+      b.style.setProperty('--i', i);
+      b.title = `${c.name} ${c.hex}`;
+      const labelEl = document.createElement('span');
+      labelEl.textContent = c.name;
+      b.appendChild(labelEl);
       b.addEventListener('click', async (e)=>{
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault();
+        e.stopPropagation();
         await copyText(c.hex);
         toast(`copiado ${c.hex}`);
         ctx.storage.set('lastColor', c.hex);
@@ -50,12 +70,17 @@ export function mount(rootEl, ctx){
     }
   }
 
-  q.addEventListener('input', (e)=>{ query = e.target.value; render(); });
-  nextBtn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); groupIndex++; render(); });
+  sel.addEventListener('change', (e)=>{
+    groupIndex = Number(sel.value) || 0;
+    render();
+  });
+  sel.addEventListener('click', (e)=>{ e.stopPropagation(); });
 
-  // mini: rota grupos
-  if(ctx.mode === 'mini'){
-    const rot = setInterval(()=>{ groupIndex++; render(); }, 2500);
+  if(ctx.mode === 'mini' && groups.length > 1){
+    const rot = setInterval(()=>{
+      groupIndex = (groupIndex + 1) % groups.length;
+      render();
+    }, 2500);
     rootEl.__cleanup = ()=> clearInterval(rot);
   }
 

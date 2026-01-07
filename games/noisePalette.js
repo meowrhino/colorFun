@@ -10,33 +10,34 @@ export function mount(rootEl, ctx){
     palette: []
   };
 
+  rootEl.classList.add('noiseRoot');
+  if(ctx.mode === 'mini') rootEl.classList.add('noiseMini');
+
   rootEl.innerHTML = `
-    <div class="panel" style="display:flex; flex-direction:column; gap:10px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-        <div class="mono" style="font-weight:700;">noise palette</div>
-        <button data-reroll class="btn" type="button">reroll</button>
-      </div>
-
-      <div class="panel" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-        <div>
-          <div class="mono" style="font-size:12px;">noiseAmount: <span data-nv></span></div>
-          <input data-noise type="range" min="0" max="100" value="35" style="width:100%"/>
-        </div>
-        <div>
-          <div class="mono" style="font-size:12px;">type</div>
-          <select data-type style="width:100%; padding:10px; border-radius:12px; border:1px solid rgba(255,255,255,.16); background:rgba(0,0,0,.25); color:white;">
-            <option value="pastel">pastel</option>
-            <option value="neon">neon</option>
-            <option value="earthy">earthy</option>
-            <option value="cold">cold</option>
-            <option value="warm">warm</option>
-          </select>
-        </div>
-      </div>
-
-      <div data-grid class="grid"></div>
-      <small class="mono" style="color:rgba(255,255,255,.65)">base: <span data-base></span></small>
+    <div class="noiseHeader">
+      <div class="noiseTitle">noise palette</div>
+      <button data-reroll class="btn" type="button">reroll</button>
     </div>
+
+    <div class="noiseControls">
+      <div class="noiseControl">
+        <label class="mono">noiseAmount: <span data-nv></span></label>
+        <input data-noise class="noiseRange" type="range" min="0" max="100" value="35"/>
+      </div>
+      <div class="noiseControl">
+        <label class="mono">type</label>
+        <select data-type class="noiseSelect">
+          <option value="pastel">pastel</option>
+          <option value="neon">neon</option>
+          <option value="earthy">earthy</option>
+          <option value="cold">cold</option>
+          <option value="warm">warm</option>
+        </select>
+      </div>
+    </div>
+
+    <div data-grid class="noiseGrid"></div>
+    <div class="noiseBase mono">base: <span data-base></span></div>
   `;
 
   const grid = rootEl.querySelector('[data-grid]');
@@ -67,6 +68,12 @@ export function mount(rootEl, ctx){
     return [h,s,l];
   }
 
+  function textColor(hex){
+    const [r,g,b] = hexToRgb(hex);
+    const lum = (r * 0.299 + g * 0.587 + b * 0.114);
+    return lum > 160 ? '#111111' : '#ffffff';
+  }
+
   function gen(){
     const base = ctx.storage.get('lastColor', '#808080');
     elBase.textContent = base;
@@ -87,12 +94,18 @@ export function mount(rootEl, ctx){
   function render(){
     elNv.textContent = state.noise;
     grid.innerHTML = '';
-    for(const hex of state.palette){
+    for(let i=0;i<state.palette.length;i++){
+      const hex = state.palette[i];
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'swatch';
+      b.className = 'noiseChip';
       b.style.background = hex;
+      b.style.color = textColor(hex);
+      b.style.setProperty('--i', i);
       b.title = hex;
+      const label = document.createElement('span');
+      label.textContent = hex;
+      b.appendChild(label);
       b.addEventListener('click', async (e)=>{
         e.preventDefault(); e.stopPropagation();
         await copyText(hex);
