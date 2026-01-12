@@ -247,6 +247,27 @@ button, input, select, textarea {
 }
 
 /* ============================================
+   Link inferior
+   ============================================ */
+.siteLink {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  color: currentColor;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  z-index: 20;
+}
+
+.siteLink:hover {
+  text-decoration: underline;
+}
+
+/* ============================================
    UTILIDADES
    ============================================ */
 .mono {
