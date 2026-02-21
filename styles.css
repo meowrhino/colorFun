@@ -46,12 +46,135 @@ button, input, select, textarea {
   padding: 20px;
 }
 
+/* Layout horizontal: < columna > */
+.playgroundOuter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 660px;
+}
+
 .playgroundColumn {
   width: 100%;
   max-width: 600px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  flex: 1;
+}
+
+/* ============================================
+   HISTORIAL — fijo abajo izquierda
+   ============================================ */
+.historyPanel {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  max-height: calc(100vh - 32px);
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column; /* arriba viejo -> abajo nuevo */
+  gap: 3px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-left: 13px; /* deja espacio para el cursor fijo ▶ */
+  padding-right: 4px;
+  z-index: 20;
+  scrollbar-width: thin;
+}
+
+.historyPanel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.historyPanel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+}
+
+.historyCursor {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  font-size: 8px;
+  line-height: 1;
+  z-index: 21;
+  pointer-events: none;
+}
+
+.historyItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+  user-select: none;
+}
+
+.historyItem:hover {
+  opacity: 0.75;
+}
+
+.historyItem--active {
+  opacity: 1;
+}
+
+.historySwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.historySpacer {
+  flex: 0 0 auto;
+  width: 1px;
+  pointer-events: none;
+}
+
+.historyCode {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ============================================
+   BOTONES DE NAVEGACIÓN < >  — minimales
+   ============================================ */
+.historyNav {
+  background: none;
+  color: currentColor;
+  border: 0;
+  padding: 0 2px;
+  font-size: 20px;
+  font-weight: 300;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.historyNavStack {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-self: stretch;
+  padding: 10px 0;
+}
+
+.historyNav:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.historyNav:disabled {
+  opacity: 0.15;
+  cursor: default;
 }
 
 /* ============================================
@@ -95,7 +218,7 @@ button, input, select, textarea {
 
 .dialRow {
   display: grid;
-  grid-template-columns: 30px 1fr 50px;
+  grid-template-columns: 44px 1fr 50px;
   align-items: center;
   gap: 12px;
 }
@@ -103,6 +226,13 @@ button, input, select, textarea {
 .dialLabel {
   font-weight: 700;
   font-size: 16px;
+}
+
+.dialLabel--noise {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: lowercase;
 }
 
 .dial {
@@ -300,9 +430,18 @@ button, input, select, textarea {
 /* ============================================
    RESPONSIVE
    ============================================ */
-@media (max-width: 600px) {
+@media (max-width: 700px) {
+  .playground {
+    justify-content: flex-end;
+  }
+
+  .playgroundOuter {
+    max-width: min(560px, calc(100vw - 110px));
+    gap: 6px;
+  }
+
   .playgroundColumn {
-    max-width: 100%;
+    max-width: 500px;
   }
 
   .paletteGrid {
@@ -312,5 +451,13 @@ button, input, select, textarea {
   .blockHeader {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .historyCode {
+    font-size: 9px;
+  }
+
+  .historyNavStack {
+    padding: 6px 0;
   }
 }
