@@ -95,7 +95,8 @@ async function init() {
     updateColor(palette);
     saveToHistory(freshHex, palette);
 
-    renderHistoryList();
+    // Posicionar el scroll instantáneamente (sin animación) al arrancar
+    requestAnimationFrame(() => scrollHistoryToActive(false));
   } catch (error) {
     console.error('Error al inicializar:', error);
     document.getElementById('colorPlayground').innerHTML =
@@ -111,11 +112,15 @@ function renderUI() {
   const initialHex = rgbToHex([state.r, state.g, state.b]);
 
   main.innerHTML = `
-    <!-- HISTORIAL: fijo abajo-izquierda -->
+    <!-- HISTORIAL: fijo izquierda -->
     <div class="historyCursor" aria-hidden="true">▶</div>
     <div class="historyPanel" id="historyPanel"></div>
 
     <div class="playgroundOuter">
+
+      <!-- NAV: arriba -->
+      <button class="historyNav" id="historyPrev" type="button" title="anterior">&#9650;</button>
+
       <div class="playgroundColumn">
 
         <!-- BLOQUE: Diales RGB + Reroll + Selector de colores + Noise -->
@@ -203,11 +208,8 @@ function renderUI() {
 
       </div>
 
-      <!-- NAVEGACIÓN EN VERTICAL -->
-      <div class="historyNavStack">
-        <button class="historyNav historyNav--prev" id="historyPrev" type="button" title="anterior">&lt;</button>
-        <button class="historyNav historyNav--next" id="historyNext" type="button" title="siguiente">&gt;</button>
-      </div>
+      <!-- NAV: abajo -->
+      <button class="historyNav" id="historyNext" type="button" title="siguiente">&#9660;</button>
 
     </div>
   `;
@@ -216,96 +218,67 @@ function renderUI() {
 // ============================================
 // RENDERIZADO DEL HISTORIAL
 // ============================================
-let historyScrollRaf = 0;
-let historyResizeRaf = 0;
+let _scrollRaf = 0;
+let _programmaticScroll = false; // true cuando el scroll es nuestro, no del usuario
 
-function historySpacerHeight(rowHeight) {
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-  const panelInsets = 32; // top + bottom (16px + 16px)
-  return Math.max(48, Math.round(viewportHeight - panelInsets - rowHeight));
-}
-
-function syncHistoryPanelLayout() {
-  const panel = document.getElementById('historyPanel');
-  if (!panel) return;
-
-  const startSpacer = panel.querySelector('.historySpacer--start');
-  const endSpacer = panel.querySelector('.historySpacer--end');
-  if (!startSpacer || !endSpacer) return;
-
-  const row = panel.querySelector('.historyItem');
-  const rowHeight = row ? row.getBoundingClientRect().height : 14;
-  const spacer = historySpacerHeight(rowHeight);
-  startSpacer.style.height = `${spacer}px`;
-  endSpacer.style.height = `${spacer}px`;
-}
-
-function stopHistoryScrollAnimation() {
-  if (historyScrollRaf) {
-    cancelAnimationFrame(historyScrollRaf);
-    historyScrollRaf = 0;
-  }
-}
-
-function animateHistoryScroll(panel, targetTop) {
-  stopHistoryScrollAnimation();
-
-  const startTop = panel.scrollTop;
-  const distance = targetTop - startTop;
-  if (Math.abs(distance) < 1) {
-    panel.scrollTop = targetTop;
-    return;
-  }
-
-  const duration = Math.min(520, Math.max(260, Math.abs(distance) * 0.65));
-  const startTime = performance.now();
-  const easeInOutCubic = (t) => (t < 0.5)
-    ? 4 * t * t * t
-    : 1 - Math.pow(-2 * t + 2, 3) / 2;
-
-  const step = (now) => {
-    const t = Math.min(1, (now - startTime) / duration);
-    panel.scrollTop = startTop + distance * easeInOutCubic(t);
-    if (t < 1) {
-      historyScrollRaf = requestAnimationFrame(step);
-    } else {
-      historyScrollRaf = 0;
-    }
-  };
-
-  historyScrollRaf = requestAnimationFrame(step);
-}
-
-function focusActiveHistoryItem(animated = true) {
+function scrollHistoryToActive(animated = true) {
   const panel = document.getElementById('historyPanel');
   if (!panel) return;
 
   const activeEl = panel.querySelector('.historyItem--active');
   if (!activeEl) return;
 
-  const targetTop = activeEl.offsetTop - (panel.clientHeight - activeEl.offsetHeight);
-  const clamped = Math.max(0, Math.min(targetTop, panel.scrollHeight - panel.clientHeight));
-  if (animated) {
-    animateHistoryScroll(panel, clamped);
-  } else {
-    stopHistoryScrollAnimation();
+  // Queremos que el item activo quede justo al fondo del panel
+  // (alineado con la flecha ▶ fija)
+  const target = activeEl.offsetTop + activeEl.offsetHeight - panel.clientHeight;
+  const clamped = Math.max(0, Math.min(target, panel.scrollHeight - panel.clientHeight));
+
+  if (!animated) {
+    if (_scrollRaf) { cancelAnimationFrame(_scrollRaf); _scrollRaf = 0; }
+    _programmaticScroll = true;
     panel.scrollTop = clamped;
+    // Desbloquear después de un frame
+    requestAnimationFrame(() => { _programmaticScroll = false; });
+    return;
   }
+
+  // Animación suave con easing
+  const start = panel.scrollTop;
+  const distance = clamped - start;
+  if (Math.abs(distance) < 1) { panel.scrollTop = clamped; return; }
+
+  const duration = Math.min(500, Math.max(200, Math.abs(distance) * 0.6));
+  const t0 = performance.now();
+  const ease = (t) => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+
+  if (_scrollRaf) cancelAnimationFrame(_scrollRaf);
+  _programmaticScroll = true;
+  const step = (now) => {
+    const t = Math.min(1, (now - t0) / duration);
+    panel.scrollTop = start + distance * ease(t);
+    if (t < 1) {
+      _scrollRaf = requestAnimationFrame(step);
+    } else {
+      _scrollRaf = 0;
+      _programmaticScroll = false;
+    }
+  };
+  _scrollRaf = requestAnimationFrame(step);
 }
 
-function renderHistoryList() {
+function renderHistoryList(animated = true) {
   const panel = document.getElementById('historyPanel');
   if (!panel) return;
 
-  const prevScrollTop = panel.scrollTop;
   panel.innerHTML = '';
-  const fragment = document.createDocumentFragment();
 
-  const startSpacer = document.createElement('div');
-  startSpacer.className = 'historySpacer historySpacer--start';
-  fragment.appendChild(startSpacer);
+  // Spacer arriba: empuja los items para que incluso el primero pueda
+  // quedar al fondo del panel (alineado con la flecha ▶)
+  const spacer = document.createElement('div');
+  spacer.className = 'historySpacer--top';
+  panel.appendChild(spacer);
 
-  // 0 -> N: más viejo arriba, más nuevo abajo.
+  // 0 → N: más viejo arriba, más nuevo abajo
   state.history.forEach((entry, i) => {
     const row = document.createElement('div');
     row.className = 'historyItem' + (i === state.historyIndex ? ' historyItem--active' : '');
@@ -334,19 +307,70 @@ function renderHistoryList() {
       renderHistoryList();
     });
 
-    fragment.appendChild(row);
+    panel.appendChild(row);
   });
 
-  const endSpacer = document.createElement('div');
-  endSpacer.className = 'historySpacer historySpacer--end';
-  fragment.appendChild(endSpacer);
-  panel.appendChild(fragment);
-
-  syncHistoryPanelLayout();
-  panel.scrollTop = prevScrollTop;
-  requestAnimationFrame(() => focusActiveHistoryItem(true));
+  // Calcular altura del spacer: panel height - una fila
+  requestAnimationFrame(() => {
+    const firstItem = panel.querySelector('.historyItem');
+    const rowH = firstItem ? firstItem.offsetHeight + 3 : 18; // +3 por gap
+    spacer.style.height = `${Math.max(0, panel.clientHeight - rowH)}px`;
+    scrollHistoryToActive(animated);
+  });
 
   // Actualizar estado de botones nav
+  const prevBtn = document.getElementById('historyPrev');
+  const nextBtn = document.getElementById('historyNext');
+  if (prevBtn) prevBtn.disabled = state.historyIndex <= 0;
+  if (nextBtn) nextBtn.disabled = state.historyIndex >= state.history.length - 1;
+}
+
+// ============================================
+// SCROLL INTERACTIVO — activar item bajo la flecha
+// ============================================
+function activateItemAtArrow() {
+  const panel = document.getElementById('historyPanel');
+  if (!panel) return;
+
+  const items = panel.querySelectorAll('.historyItem');
+  if (!items.length) return;
+
+  // La flecha está en el fondo del panel.
+  // El item cuya posición bottom está más cerca del bottom del panel es el activo.
+  const panelBottom = panel.scrollTop + panel.clientHeight;
+  let closest = null;
+  let closestDist = Infinity;
+
+  items.forEach(item => {
+    const itemBottom = item.offsetTop + item.offsetHeight;
+    const dist = Math.abs(itemBottom - panelBottom);
+    if (dist < closestDist) {
+      closestDist = dist;
+      closest = item;
+    }
+  });
+
+  if (!closest) return;
+  const idx = Number(closest.dataset.index);
+  if (idx === state.historyIndex) return; // ya es el activo
+
+  // Activar el nuevo item
+  state.historyIndex = idx;
+  const entry = state.history[idx];
+  const [r, g, b] = hexToRgb(entry.color);
+  state.r = r;
+  state.g = g;
+  state.b = b;
+  persistHistory();
+  updateColor(entry.palette);
+
+  // Actualizar clases visuales sin re-renderizar (sin mover el scroll)
+  panel.querySelectorAll('.historyItem--active').forEach(el =>
+    el.classList.remove('historyItem--active')
+  );
+  closest.classList.add('historyItem--active');
+
+  // Actualizar botones
   const prevBtn = document.getElementById('historyPrev');
   const nextBtn = document.getElementById('historyNext');
   if (prevBtn) prevBtn.disabled = state.historyIndex <= 0;
@@ -474,14 +498,21 @@ function attachEventListeners() {
   // Navegación historial
   document.getElementById('historyPrev').addEventListener('click', () => navigateHistory(-1));
   document.getElementById('historyNext').addEventListener('click', () => navigateHistory(1));
-  window.addEventListener('resize', () => {
-    if (historyResizeRaf) cancelAnimationFrame(historyResizeRaf);
-    historyResizeRaf = requestAnimationFrame(() => {
-      historyResizeRaf = 0;
-      syncHistoryPanelLayout();
-      focusActiveHistoryItem(false);
-    });
-  });
+
+  // Scroll interactivo: cuando el usuario scrollea el panel,
+  // el item alineado con la flecha ▶ (fondo del panel) se activa
+  let _userScrollDebounce = 0;
+  const historyPanel = document.getElementById('historyPanel');
+  historyPanel.addEventListener('scroll', () => {
+    if (_programmaticScroll) return; // ignorar nuestros propios scrolls
+    clearTimeout(_userScrollDebounce);
+    _userScrollDebounce = setTimeout(() => {
+      activateItemAtArrow();
+    }, 80);
+  }, { passive: true });
+
+  // Reajustar spacer y scroll al redimensionar la ventana
+  window.addEventListener('resize', () => renderHistoryList(false));
 
   noiseType.value = state.noiseType;
   typeBtn.textContent = state.noiseType;
