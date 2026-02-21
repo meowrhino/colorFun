@@ -39,19 +39,15 @@ function saveToHistory(hex, palette) {
 }
 
 function persistHistory() {
-  storage.set('history', JSON.stringify(state.history));
-  storage.set('historyIndex', String(state.historyIndex));
+  storage.set('history', state.history);
+  storage.set('historyIndex', state.historyIndex);
 }
 
 function loadHistory() {
-  try {
-    const raw = storage.get('history');
-    if (raw) state.history = JSON.parse(raw);
-  } catch (e) {
-    state.history = [];
-  }
+  const saved = storage.get('history');
+  state.history = Array.isArray(saved) ? saved : [];
   const idx = storage.get('historyIndex');
-  state.historyIndex = idx !== null ? Number(idx) : state.history.length - 1;
+  state.historyIndex = typeof idx === 'number' ? idx : state.history.length - 1;
 }
 
 function navigateHistory(delta) {
@@ -68,6 +64,21 @@ function navigateHistory(delta) {
   renderHistoryList();
 }
 
+function resetHistoryWithFreshColor() {
+  // Reiniciar historial y cancelar cualquier sincronización de scroll pendiente.
+  state.history = [];
+  state.historyIndex = -1;
+  if (_scrollRaf) { cancelAnimationFrame(_scrollRaf); _scrollRaf = 0; }
+  clearTimeout(_scrollUnlockTimer);
+  clearTimeout(_userScrollDebounce);
+  _scrollLockSeq += 1;
+  _programmaticScroll = false;
+
+  const randomColor = Math.floor(Math.random() * 0xffffff);
+  const hex = '#' + randomColor.toString(16).padStart(6, '0').toUpperCase();
+  applyHex(hex, true);
+}
+
 // ============================================
 // INICIALIZACIÓN
 // ============================================
@@ -78,6 +89,12 @@ async function init() {
     state.htmlNamedColors = data;
 
     loadHistory();
+
+    // Restaurar noise y noiseType de la sesión anterior
+    const savedNoise = storage.get('noise');
+    const savedNoiseType = storage.get('noiseType');
+    if (typeof savedNoise === 'number') state.noise = savedNoise;
+    if (typeof savedNoiseType === 'string') state.noiseType = savedNoiseType;
 
     // Siempre arranca con un color random nuevo
     const seed = Math.floor(Math.random() * 0xffffff);
@@ -172,27 +189,28 @@ function renderUI() {
                 </select>
               </div>
               <button id="pasteBtn" class="btn btnSmall" type="button">paste</button>
+              <button id="resetHistoryBtn" class="btn btnSmall" type="button">fresh start</button>
             </div>
           </div>
 
           <div class="dialGroup">
             <div class="dialRow">
-              <label class="dialLabel">R</label>
+              <label class="dialLabel" for="dialR">R</label>
               <input id="dialR" class="dial" type="range" min="0" max="255" value="${state.r}" aria-label="Red"/>
               <output id="valR" class="dialValue mono">${state.r}</output>
             </div>
             <div class="dialRow">
-              <label class="dialLabel">G</label>
+              <label class="dialLabel" for="dialG">G</label>
               <input id="dialG" class="dial" type="range" min="0" max="255" value="${state.g}" aria-label="Green"/>
               <output id="valG" class="dialValue mono">${state.g}</output>
             </div>
             <div class="dialRow">
-              <label class="dialLabel">B</label>
+              <label class="dialLabel" for="dialB">B</label>
               <input id="dialB" class="dial" type="range" min="0" max="255" value="${state.b}" aria-label="Blue"/>
               <output id="valB" class="dialValue mono">${state.b}</output>
             </div>
             <div class="dialRow">
-              <label class="dialLabel dialLabel--noise">random</label>
+              <label class="dialLabel dialLabel--noise" for="noiseRange">random</label>
               <input id="noiseRange" class="dial" type="range" min="0" max="100" value="${state.noise}" aria-label="Noise"/>
               <output id="valN" class="dialValue mono">${state.noise}</output>
             </div>
@@ -201,16 +219,17 @@ function renderUI() {
           <div id="paletteGrid" class="paletteGrid"></div>
         </section>
 
-        <div id="colorInfo" class="colorInfo">
-          <div id="infoHex" class="mono" data-copy>${initialHex}</div>
-          <div id="infoRgb" class="mono">rgb(${state.r}, ${state.g}, ${state.b})</div>
-        </div>
-
       </div>
 
       <!-- NAV: abajo -->
       <button class="historyNav" id="historyNext" type="button" title="siguiente">&#9660;</button>
 
+    </div>
+
+    <!-- Color info: fuera de playgroundOuter para que order funcione en móvil -->
+    <div id="colorInfo" class="colorInfo">
+      <div id="infoHex" class="mono" data-copy>${initialHex}</div>
+      <div id="infoRgb" class="mono">rgb(${state.r}, ${state.g}, ${state.b})</div>
     </div>
   `;
 }
@@ -219,7 +238,23 @@ function renderUI() {
 // RENDERIZADO DEL HISTORIAL
 // ============================================
 let _scrollRaf = 0;
+let _scrollUnlockTimer = 0;
+let _scrollLockSeq = 0;
+let _userScrollDebounce = 0;
 let _programmaticScroll = false; // true cuando el scroll es nuestro, no del usuario
+const HISTORY_SCROLL_DEBOUNCE = 80;
+
+function lockProgrammaticScroll(ms) {
+  _scrollLockSeq += 1;
+  const lockSeq = _scrollLockSeq;
+  _programmaticScroll = true;
+  clearTimeout(_scrollUnlockTimer);
+  clearTimeout(_userScrollDebounce);
+  _scrollUnlockTimer = setTimeout(() => {
+    if (lockSeq !== _scrollLockSeq) return;
+    _programmaticScroll = false;
+  }, ms);
+}
 
 function scrollHistoryToActive(animated = true) {
   const panel = document.getElementById('historyPanel');
@@ -233,26 +268,35 @@ function scrollHistoryToActive(animated = true) {
   const target = activeEl.offsetTop + activeEl.offsetHeight - panel.clientHeight;
   const clamped = Math.max(0, Math.min(target, panel.scrollHeight - panel.clientHeight));
 
+  // Margen de seguridad: debe ser mayor que el debounce del scroll listener (80ms)
+  // para evitar que activateItemAtArrow se dispare con un scroll programático
+  const UNLOCK_DELAY = 170;
+
   if (!animated) {
     if (_scrollRaf) { cancelAnimationFrame(_scrollRaf); _scrollRaf = 0; }
-    _programmaticScroll = true;
+    lockProgrammaticScroll(UNLOCK_DELAY + HISTORY_SCROLL_DEBOUNCE);
     panel.scrollTop = clamped;
-    // Desbloquear después de un frame
-    requestAnimationFrame(() => { _programmaticScroll = false; });
     return;
   }
 
   // Animación suave con easing
   const start = panel.scrollTop;
   const distance = clamped - start;
-  if (Math.abs(distance) < 1) { panel.scrollTop = clamped; return; }
+  if (Math.abs(distance) < 1) {
+    if (_scrollRaf) { cancelAnimationFrame(_scrollRaf); _scrollRaf = 0; }
+    lockProgrammaticScroll(UNLOCK_DELAY + HISTORY_SCROLL_DEBOUNCE);
+    panel.scrollTop = clamped;
+    return;
+  }
 
-  const duration = Math.min(500, Math.max(200, Math.abs(distance) * 0.6));
+  const duration = Math.min(720, Math.max(280, 260 + Math.abs(distance) * 0.55));
   const t0 = performance.now();
-  const ease = (t) => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+  const ease = (t) => t < 0.5
+    ? 16 * t * t * t * t * t
+    : 1 - Math.pow(-2 * t + 2, 5) / 2;
 
   if (_scrollRaf) cancelAnimationFrame(_scrollRaf);
-  _programmaticScroll = true;
+  lockProgrammaticScroll(duration + UNLOCK_DELAY + HISTORY_SCROLL_DEBOUNCE);
   const step = (now) => {
     const t = Math.min(1, (now - t0) / duration);
     panel.scrollTop = start + distance * ease(t);
@@ -260,7 +304,6 @@ function scrollHistoryToActive(animated = true) {
       _scrollRaf = requestAnimationFrame(step);
     } else {
       _scrollRaf = 0;
-      _programmaticScroll = false;
     }
   };
   _scrollRaf = requestAnimationFrame(step);
@@ -270,6 +313,8 @@ function renderHistoryList(animated = true) {
   const panel = document.getElementById('historyPanel');
   if (!panel) return;
 
+  const prevScrollTop = panel.scrollTop;
+  clearTimeout(_userScrollDebounce);
   panel.innerHTML = '';
 
   // Spacer arriba: empuja los items para que incluso el primero pueda
@@ -315,6 +360,9 @@ function renderHistoryList(animated = true) {
     const firstItem = panel.querySelector('.historyItem');
     const rowH = firstItem ? firstItem.offsetHeight + 3 : 18; // +3 por gap
     spacer.style.height = `${Math.max(0, panel.clientHeight - rowH)}px`;
+
+    // Mantener continuidad visual: no arrancar la animación desde 0 tras re-render
+    panel.scrollTop = prevScrollTop;
     scrollHistoryToActive(animated);
   });
 
@@ -439,41 +487,26 @@ function attachEventListeners() {
   noiseRange.addEventListener('input', () => {
     state.noise = Number(noiseRange.value);
     document.getElementById('valN').textContent = state.noise;
+    storage.set('noise', state.noise);
     const palette = buildPalette();
     renderPalette(palette);
   });
 
-  const noiseDescriptions = {
-    pastel:        'suave, claro, desaturado',
-    neon:          'saturación máxima, muy vibrante',
-    earthy:        'tierra, cálido, oscuro',
-    muted:         'grisáceo, editorial, quieto',
-    dust:          'polvoriento, pálido, casi gris',
-    deep:          'oscuro, rico, profundo',
-    bright:        'vivo, luminoso, enérgico',
-    mono:          'monocromático, solo varía saturación y brillo',
-    analogous:     'matices muy cercanos, muy armonioso',
-    complementary: 'tu color y su opuesto en el círculo',
-    split:         'opuesto dividido, más sutil que complementary',
-    triadic:       'tres zonas separadas 120°, equilibrado',
-    cold:          'azules, cianes y violetas fríos',
-    warm:          'rojos, naranjas y amarillos cálidos',
-    ice:           'muy claro, cian, casi blanco frío',
-    sunset:        'rosas, rojos y naranjas, ignora el color base',
-    contrast:      'alterna muy claro y muy oscuro',
-    shadow:        'todo más oscuro que el color base',
-    pop:           'mezcla neon y pastel en el mismo grid',
-    toxic:         'amarillos y verdes ácidos perturbadores',
-    vintage:       'sepia suave, desaturado y cálido',
-    random:        'sin restricciones, caos puro',
-  };
+  // Al soltar el noise, guardar en historial
+  noiseRange.addEventListener('change', () => {
+    const hex = rgbToHex([state.r, state.g, state.b]);
+    saveToHistory(hex, getCurrentPalette());
+  });
 
   noiseType.addEventListener('change', () => {
     state.noiseType = noiseType.value;
     typeBtn.textContent = state.noiseType;
+    storage.set('noiseType', state.noiseType);
     toast(`${state.noiseType} — ${noiseDescriptions[state.noiseType]}`, 2500);
     const palette = buildPalette();
     renderPalette(palette);
+    const hex = rgbToHex([state.r, state.g, state.b]);
+    saveToHistory(hex, getCurrentPalette());
   });
 
   // Botón Paste
@@ -495,24 +528,34 @@ function attachEventListeners() {
     applyHex(hex, true);
   });
 
+  // Reiniciar historial y arrancar con un color nuevo
+  document.getElementById('resetHistoryBtn').addEventListener('click', () => {
+    resetHistoryWithFreshColor();
+    toast('historial reiniciado');
+  });
+
   // Navegación historial
   document.getElementById('historyPrev').addEventListener('click', () => navigateHistory(-1));
   document.getElementById('historyNext').addEventListener('click', () => navigateHistory(1));
 
   // Scroll interactivo: cuando el usuario scrollea el panel,
   // el item alineado con la flecha ▶ (fondo del panel) se activa
-  let _userScrollDebounce = 0;
   const historyPanel = document.getElementById('historyPanel');
   historyPanel.addEventListener('scroll', () => {
     if (_programmaticScroll) return; // ignorar nuestros propios scrolls
     clearTimeout(_userScrollDebounce);
     _userScrollDebounce = setTimeout(() => {
+      if (_programmaticScroll) return;
       activateItemAtArrow();
-    }, 80);
+    }, HISTORY_SCROLL_DEBOUNCE);
   }, { passive: true });
 
-  // Reajustar spacer y scroll al redimensionar la ventana
-  window.addEventListener('resize', () => renderHistoryList(false));
+  // Reajustar spacer y scroll al redimensionar la ventana (con debounce)
+  let _resizeDebounce = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(_resizeDebounce);
+    _resizeDebounce = setTimeout(() => renderHistoryList(false), 150);
+  });
 
   noiseType.value = state.noiseType;
   typeBtn.textContent = state.noiseType;
@@ -532,9 +575,6 @@ function getCurrentPalette() {
 // ============================================
 function updateColor(palette) {
   const hex = rgbToHex([state.r, state.g, state.b]);
-
-  // Actualizar localStorage de lastColor (compatibilidad)
-  storage.set('lastColor', hex);
 
   // Actualizar displays
   const infoHex = document.getElementById('infoHex');
@@ -556,9 +596,7 @@ function updateColor(palette) {
   document.body.style.backgroundColor = hex;
 
   // Determinar color de texto según luminosidad
-  const lum = (state.r * 0.299 + state.g * 0.587 + state.b * 0.114);
-  const isLight = lum > 160;
-  document.body.style.color = isLight ? '#111111' : '#ffffff';
+  document.body.style.color = isLight(state.r, state.g, state.b) ? '#111111' : '#ffffff';
 
   // Paleta: usar la proporcionada o generar nueva
   if (palette && palette.length === 9) {
@@ -836,11 +874,39 @@ function renderPalette(palette) {
 // ============================================
 // UTILIDADES
 // ============================================
+function isLight(r, g, b) {
+  return (r * 0.299 + g * 0.587 + b * 0.114) > 160;
+}
+
 function getTextColor(hex) {
   const [r, g, b] = hexToRgb(hex);
-  const lum = (r * 0.299 + g * 0.587 + b * 0.114);
-  return lum > 160 ? '#111111' : '#ffffff';
+  return isLight(r, g, b) ? '#111111' : '#ffffff';
 }
+
+const noiseDescriptions = {
+  pastel:        'suave, claro, desaturado',
+  neon:          'saturación máxima, muy vibrante',
+  earthy:        'tierra, cálido, oscuro',
+  muted:         'grisáceo, editorial, quieto',
+  dust:          'polvoriento, pálido, casi gris',
+  deep:          'oscuro, rico, profundo',
+  bright:        'vivo, luminoso, enérgico',
+  mono:          'monocromático, solo varía saturación y brillo',
+  analogous:     'matices muy cercanos, muy armonioso',
+  complementary: 'tu color y su opuesto en el círculo',
+  split:         'opuesto dividido, más sutil que complementary',
+  triadic:       'tres zonas separadas 120°, equilibrado',
+  cold:          'azules, cianes y violetas fríos',
+  warm:          'rojos, naranjas y amarillos cálidos',
+  ice:           'muy claro, cian, casi blanco frío',
+  sunset:        'rosas, rojos y naranjas, ignora el color base',
+  contrast:      'alterna muy claro y muy oscuro',
+  shadow:        'todo más oscuro que el color base',
+  pop:           'mezcla neon y pastel en el mismo grid',
+  toxic:         'amarillos y verdes ácidos perturbadores',
+  vintage:       'sepia suave, desaturado y cálido',
+  random:        'sin restricciones, caos puro',
+};
 
 // ============================================
 // ARRANQUE

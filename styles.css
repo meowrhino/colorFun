@@ -1,17 +1,8 @@
 :root {
-  --bg: #fff6e6;
   --fg: #1a1a1a;
-  --muted: rgba(0, 0, 0, .55);
-  --card: rgba(255, 255, 255, .7);
   --card2: rgba(255, 255, 255, .55);
-  --border: transparent;
-  --radius: 0px;
-  --pad: 16px;
-  --shadow: none;
   --mono: "IBM Plex Mono", "Fira Mono", "Menlo", "Monaco", "Consolas", "Liberation Mono", monospace;
   --sans: "Trebuchet MS", "Gill Sans", "Verdana", sans-serif;
-  --display: "Cooper Black", "Trebuchet MS", "Gill Sans", sans-serif;
-  --accent: #ff7a1a;
 }
 
 * {
@@ -188,15 +179,6 @@ button, input, select, textarea {
   justify-content: flex-end;
   align-items: center;
   gap: 12px;
-}
-
-.blockTitle {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 800;
-  font-family: var(--display);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 /* ============================================
@@ -542,6 +524,7 @@ button, input, select, textarea {
     text-align: center;
     margin-top: 16px;
     font-size: 11px;
+    order: 3;
   }
 
   /* Firma: centrada, fluye debajo */
@@ -552,6 +535,7 @@ button, input, select, textarea {
     transform: none;
     margin-top: 16px;
     padding-bottom: 12px;
+    order: 4;
   }
 
   /* Nav flechas: ocultas en móvil */

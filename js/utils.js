@@ -1,7 +1,3 @@
-export function getQuery(){
-  const p = new URLSearchParams(location.search);
-  return Object.fromEntries(p.entries());
-}
 export function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
 
 export function hexToRgb(hex){
