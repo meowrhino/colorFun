@@ -31,10 +31,21 @@ function saveToHistory(hex, palette) {
   // Si estamos en medio del historial (navegando hacia atrás),
   // al guardar un nuevo color nos movemos al final
   // (no borramos lo que hay después, solo añadimos al final)
+  const prevLen = state.history.length;
   const entry = { color: hex, palette: [...palette] };
   state.history.push(entry);
   state.historyIndex = state.history.length - 1;
   persistHistory();
+
+  const panel = document.getElementById('historyPanel');
+  if (panel) {
+    const renderedRows = panel.querySelectorAll('.historyItem').length;
+    const hasSpacer = !!panel.querySelector('.historySpacer--top');
+    if (hasSpacer && renderedRows === prevLen) {
+      appendHistoryRow(entry, state.historyIndex, true);
+      return;
+    }
+  }
   renderHistoryList();
 }
 
@@ -61,7 +72,12 @@ function navigateHistory(delta) {
   state.b = b;
   persistHistory();
   updateColor(entry.palette); // restaura paleta exacta
-  renderHistoryList();
+  if (!setActiveHistoryRow(state.historyIndex)) {
+    renderHistoryList();
+    return;
+  }
+  updateHistoryNavButtons();
+  scrollHistoryToActive(true);
 }
 
 function resetHistoryWithFreshColor() {
@@ -256,6 +272,69 @@ function lockProgrammaticScroll(ms) {
   }, ms);
 }
 
+function createHistoryRow(entry, i) {
+  const row = document.createElement('div');
+  row.className = 'historyItem' + (i === state.historyIndex ? ' historyItem--active' : '');
+  row.dataset.index = i;
+
+  const swatch = document.createElement('span');
+  swatch.className = 'historySwatch';
+  swatch.style.background = entry.color;
+
+  const code = document.createElement('span');
+  code.className = 'historyCode mono';
+  code.textContent = entry.color;
+
+  row.appendChild(swatch);
+  row.appendChild(code);
+  return row;
+}
+
+function setActiveHistoryRow(index) {
+  const panel = document.getElementById('historyPanel');
+  if (!panel) return false;
+  const next = panel.querySelector(`.historyItem[data-index="${index}"]`);
+  if (!next) return false;
+
+  const prev = panel.querySelector('.historyItem--active');
+  if (prev && prev !== next) prev.classList.remove('historyItem--active');
+  next.classList.add('historyItem--active');
+  return true;
+}
+
+function updateHistoryNavButtons() {
+  const prevBtn = document.getElementById('historyPrev');
+  const nextBtn = document.getElementById('historyNext');
+  if (prevBtn) prevBtn.disabled = state.historyIndex <= 0;
+  if (nextBtn) nextBtn.disabled = state.historyIndex >= state.history.length - 1;
+}
+
+function syncHistorySpacer(panel) {
+  const spacer = panel.querySelector('.historySpacer--top');
+  if (!spacer) return;
+  const firstItem = panel.querySelector('.historyItem');
+  const rowH = firstItem ? firstItem.offsetHeight + 3 : 18; // +3 por gap
+  spacer.style.height = `${Math.max(0, panel.clientHeight - rowH)}px`;
+}
+
+function appendHistoryRow(entry, index, animated = true) {
+  const panel = document.getElementById('historyPanel');
+  if (!panel) return;
+  if (!panel.querySelector('.historySpacer--top')) {
+    renderHistoryList(animated);
+    return;
+  }
+
+  panel.appendChild(createHistoryRow(entry, index));
+  setActiveHistoryRow(index);
+  updateHistoryNavButtons();
+
+  requestAnimationFrame(() => {
+    syncHistorySpacer(panel);
+    scrollHistoryToActive(animated);
+  });
+}
+
 function scrollHistoryToActive(animated = true) {
   const panel = document.getElementById('historyPanel');
   if (!panel) return;
@@ -323,43 +402,17 @@ function renderHistoryList(animated = true) {
   spacer.className = 'historySpacer--top';
   panel.appendChild(spacer);
 
+  const fragment = document.createDocumentFragment();
   // 0 → N: más viejo arriba, más nuevo abajo
   state.history.forEach((entry, i) => {
-    const row = document.createElement('div');
-    row.className = 'historyItem' + (i === state.historyIndex ? ' historyItem--active' : '');
-    row.dataset.index = i;
-
-    const swatch = document.createElement('span');
-    swatch.className = 'historySwatch';
-    swatch.style.background = entry.color;
-
-    const code = document.createElement('span');
-    code.className = 'historyCode mono';
-    code.textContent = entry.color;
-
-    row.appendChild(swatch);
-    row.appendChild(code);
-
-    row.addEventListener('click', () => {
-      state.historyIndex = i;
-      const e = state.history[i];
-      const [r, g, b] = hexToRgb(e.color);
-      state.r = r;
-      state.g = g;
-      state.b = b;
-      persistHistory();
-      updateColor(e.palette);
-      renderHistoryList();
-    });
-
-    panel.appendChild(row);
+    fragment.appendChild(createHistoryRow(entry, i));
   });
+  panel.appendChild(fragment);
 
   // Calcular altura del spacer: panel height - una fila
   requestAnimationFrame(() => {
-    const firstItem = panel.querySelector('.historyItem');
-    const rowH = firstItem ? firstItem.offsetHeight + 3 : 18; // +3 por gap
-    spacer.style.height = `${Math.max(0, panel.clientHeight - rowH)}px`;
+    if (!panel.contains(spacer)) return;
+    syncHistorySpacer(panel);
 
     // Mantener continuidad visual: no arrancar la animación desde 0 tras re-render
     panel.scrollTop = prevScrollTop;
@@ -367,10 +420,7 @@ function renderHistoryList(animated = true) {
   });
 
   // Actualizar estado de botones nav
-  const prevBtn = document.getElementById('historyPrev');
-  const nextBtn = document.getElementById('historyNext');
-  if (prevBtn) prevBtn.disabled = state.historyIndex <= 0;
-  if (nextBtn) nextBtn.disabled = state.historyIndex >= state.history.length - 1;
+  updateHistoryNavButtons();
 }
 
 // ============================================
@@ -413,16 +463,10 @@ function activateItemAtArrow() {
   updateColor(entry.palette);
 
   // Actualizar clases visuales sin re-renderizar (sin mover el scroll)
-  panel.querySelectorAll('.historyItem--active').forEach(el =>
-    el.classList.remove('historyItem--active')
-  );
-  closest.classList.add('historyItem--active');
+  setActiveHistoryRow(idx);
 
   // Actualizar botones
-  const prevBtn = document.getElementById('historyPrev');
-  const nextBtn = document.getElementById('historyNext');
-  if (prevBtn) prevBtn.disabled = state.historyIndex <= 0;
-  if (nextBtn) nextBtn.disabled = state.historyIndex >= state.history.length - 1;
+  updateHistoryNavButtons();
 }
 
 // ============================================
@@ -541,6 +585,26 @@ function attachEventListeners() {
   // Scroll interactivo: cuando el usuario scrollea el panel,
   // el item alineado con la flecha ▶ (fondo del panel) se activa
   const historyPanel = document.getElementById('historyPanel');
+  historyPanel.addEventListener('click', (event) => {
+    const row = event.target.closest('.historyItem');
+    if (!row || !historyPanel.contains(row)) return;
+
+    const idx = Number(row.dataset.index);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= state.history.length) return;
+    if (idx === state.historyIndex) return;
+
+    state.historyIndex = idx;
+    const entry = state.history[idx];
+    const [r, g, b] = hexToRgb(entry.color);
+    state.r = r;
+    state.g = g;
+    state.b = b;
+    persistHistory();
+    updateColor(entry.palette);
+    setActiveHistoryRow(idx);
+    updateHistoryNavButtons();
+    scrollHistoryToActive(true);
+  });
   historyPanel.addEventListener('scroll', () => {
     if (_programmaticScroll) return; // ignorar nuestros propios scrolls
     clearTimeout(_userScrollDebounce);
@@ -554,7 +618,10 @@ function attachEventListeners() {
   let _resizeDebounce = 0;
   window.addEventListener('resize', () => {
     clearTimeout(_resizeDebounce);
-    _resizeDebounce = setTimeout(() => renderHistoryList(false), 150);
+    _resizeDebounce = setTimeout(() => {
+      syncHistorySpacer(historyPanel);
+      scrollHistoryToActive(false);
+    }, 150);
   });
 
   noiseType.value = state.noiseType;
@@ -575,6 +642,9 @@ function getCurrentPalette() {
 // ============================================
 function updateColor(palette) {
   const hex = rgbToHex([state.r, state.g, state.b]);
+
+  // Mantener compatibilidad con otros módulos/juegos que leen lastColor.
+  storage.set('lastColor', hex);
 
   // Actualizar displays
   const infoHex = document.getElementById('infoHex');

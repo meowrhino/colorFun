@@ -77,3 +77,11 @@ export function storageNS(ns){
     }
   };
 }
+
+export function getQuery(search = window.location.search){
+  const params = new URLSearchParams(search || '');
+  return {
+    game: params.get('game') || '',
+    instance: params.get('instance') || '',
+  };
+}
