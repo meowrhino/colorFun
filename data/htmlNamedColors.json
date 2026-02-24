@@ -485,6 +485,15 @@
           ]
         },
         {
+          "name": "RebeccaPurple",
+          "hex": "#663399",
+          "rgb": [
+            102,
+            51,
+            153
+          ]
+        },
+        {
           "name": "DarkMagenta",
           "hex": "#8B008B",
           "rgb": [
@@ -1253,7 +1262,25 @@
           ]
         },
         {
+          "name": "DarkSlateGrey",
+          "hex": "#2F4F4F",
+          "rgb": [
+            47,
+            79,
+            79
+          ]
+        },
+        {
           "name": "DimGray",
+          "hex": "#696969",
+          "rgb": [
+            105,
+            105,
+            105
+          ]
+        },
+        {
+          "name": "DimGrey",
           "hex": "#696969",
           "rgb": [
             105,
@@ -1271,7 +1298,25 @@
           ]
         },
         {
+          "name": "SlateGrey",
+          "hex": "#708090",
+          "rgb": [
+            112,
+            128,
+            144
+          ]
+        },
+        {
           "name": "Gray",
+          "hex": "#808080",
+          "rgb": [
+            128,
+            128,
+            128
+          ]
+        },
+        {
+          "name": "Grey",
           "hex": "#808080",
           "rgb": [
             128,
@@ -1289,7 +1334,25 @@
           ]
         },
         {
+          "name": "LightSlateGrey",
+          "hex": "#778899",
+          "rgb": [
+            119,
+            136,
+            153
+          ]
+        },
+        {
           "name": "DarkGray",
+          "hex": "#A9A9A9",
+          "rgb": [
+            169,
+            169,
+            169
+          ]
+        },
+        {
+          "name": "DarkGrey",
           "hex": "#A9A9A9",
           "rgb": [
             169,
@@ -1308,6 +1371,15 @@
         },
         {
           "name": "LightGray",
+          "hex": "#D3D3D3",
+          "rgb": [
+            211,
+            211,
+            211
+          ]
+        },
+        {
+          "name": "LightGrey",
           "hex": "#D3D3D3",
           "rgb": [
             211,

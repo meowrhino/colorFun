@@ -10,14 +10,187 @@ import {
   storageNS
 } from './utils.js';
 
-// ============================================
-// ESTADO GLOBAL
-// ============================================
 const storage = storageNS('colorPlayground');
 const HISTORY_LIMIT = 400;
 let storageWarningShown = false;
+const DEFAULT_LANGUAGE = 'en';
+const SUPPORTED_LANGUAGES = ['en', 'es'];
+
+const UI_TEXT = {
+  en: {
+    documentTitle: 'colorfun',
+    metaDescription: 'Explore colors you like, tweak variations with noise, and keep your history to continue discovering tones.',
+    storageWarning: 'Could not save data in this browser',
+    loadErrorPanel: 'Could not load the app. Check the console.',
+    historyPrevTitle: 'previous',
+    historyNextTitle: 'next',
+    newLabel: 'new',
+    colorByName: 'color by name',
+    noiseType: 'noise type',
+    paste: 'paste',
+    freshStart: 'fresh start',
+    randomLabel: 'random',
+    red: 'Red',
+    green: 'Green',
+    blue: 'Blue',
+    noise: 'Noise',
+    copiedPrefix: 'copied',
+    pastePrompt: 'Paste a hex color (#RGB or #RRGGBB):',
+    invalidHex: 'invalid hex',
+    historyReset: 'history reset',
+    groupFallback: 'group',
+    noiseGroupCharacter: '- character',
+    noiseGroupHarmony: '- color harmony',
+    noiseGroupTemperature: '- temperature',
+    noiseGroupContrast: '- contrast and structure',
+    noiseGroupExperimental: '- experimental',
+  },
+  es: {
+    documentTitle: 'colorfun',
+    metaDescription: 'Explora colores que te gusten, ajusta variaciones con noise y guarda tu historial para seguir descubriendo tonos.',
+    storageWarning: 'No se pudo guardar en este navegador',
+    loadErrorPanel: 'No se pudo cargar la app. Revisa la consola.',
+    historyPrevTitle: 'anterior',
+    historyNextTitle: 'siguiente',
+    newLabel: 'nuevo',
+    colorByName: 'color por nombre',
+    noiseType: 'tipo de ruido',
+    paste: 'pegar',
+    freshStart: 'nuevo inicio',
+    randomLabel: 'azar',
+    red: 'Rojo',
+    green: 'Verde',
+    blue: 'Azul',
+    noise: 'Ruido',
+    copiedPrefix: 'copiado',
+    pastePrompt: 'Pega un color hex (#RGB o #RRGGBB):',
+    invalidHex: 'hex invalido',
+    historyReset: 'historial reiniciado',
+    groupFallback: 'grupo',
+    noiseGroupCharacter: '- caracter',
+    noiseGroupHarmony: '- armonia cromatica',
+    noiseGroupTemperature: '- temperatura',
+    noiseGroupContrast: '- contraste y estructura',
+    noiseGroupExperimental: '- experimental',
+  },
+};
+
+const NOISE_INFO = {
+  pastel:        { label: { en: 'pastel', es: 'pastel' }, description: { en: 'soft, light, desaturated', es: 'suave, claro, desaturado' } },
+  neon:          { label: { en: 'neon', es: 'neon' }, description: { en: 'maximum saturation, highly vibrant', es: 'saturacion maxima, muy vibrante' } },
+  earthy:        { label: { en: 'earthy', es: 'earthy' }, description: { en: 'earthy, warm, darker', es: 'tierra, calido, oscuro' } },
+  muted:         { label: { en: 'muted', es: 'muted' }, description: { en: 'grayish, editorial, quiet', es: 'grisaceo, editorial, tranquilo' } },
+  dust:          { label: { en: 'dust', es: 'dust' }, description: { en: 'dusty, pale, near gray', es: 'polvoriento, palido, casi gris' } },
+  deep:          { label: { en: 'deep', es: 'deep' }, description: { en: 'dark, rich, deep', es: 'oscuro, rico, profundo' } },
+  bright:        { label: { en: 'bright', es: 'bright' }, description: { en: 'vivid, bright, energetic', es: 'vivo, luminoso, energetico' } },
+  mono:          { label: { en: 'mono', es: 'mono' }, description: { en: 'monochromatic, only saturation and lightness vary', es: 'monocromatico, solo varia saturacion y brillo' } },
+  analogous:     { label: { en: 'analogous', es: 'analogous' }, description: { en: 'very close hues, very harmonious', es: 'matices muy cercanos, muy armonioso' } },
+  complementary: { label: { en: 'complementary', es: 'complementary' }, description: { en: 'your color and its opposite on the wheel', es: 'tu color y su opuesto en el circulo' } },
+  split:         { label: { en: 'split', es: 'split' }, description: { en: 'split opposite, subtler than complementary', es: 'opuesto dividido, mas sutil que complementary' } },
+  triadic:       { label: { en: 'triadic', es: 'triadic' }, description: { en: 'three zones 120 degrees apart, balanced', es: 'tres zonas separadas 120 grados, equilibrado' } },
+  cold:          { label: { en: 'cold', es: 'cold' }, description: { en: 'cool blues, cyans and violets', es: 'azules, cianes y violetas frios' } },
+  warm:          { label: { en: 'warm', es: 'warm' }, description: { en: 'warm reds, oranges and yellows', es: 'rojos, naranjas y amarillos calidos' } },
+  ice:           { label: { en: 'ice', es: 'ice' }, description: { en: 'very light cyan, almost icy white', es: 'muy claro, cian, casi blanco frio' } },
+  sunset:        { label: { en: 'sunset', es: 'sunset' }, description: { en: 'pinks, reds and oranges, ignores the base color', es: 'rosas, rojos y naranjas, ignora el color base' } },
+  contrast:      { label: { en: 'contrast', es: 'contrast' }, description: { en: 'alternates very light and very dark', es: 'alterna muy claro y muy oscuro' } },
+  shadow:        { label: { en: 'shadow', es: 'shadow' }, description: { en: 'everything darker than the base color', es: 'todo mas oscuro que el color base' } },
+  pop:           { label: { en: 'pop', es: 'pop' }, description: { en: 'mixes neon and pastel in the same grid', es: 'mezcla neon y pastel en el mismo grid' } },
+  toxic:         { label: { en: 'toxic', es: 'toxic' }, description: { en: 'aggressive acidic yellows and greens', es: 'amarillos y verdes acidos perturbadores' } },
+  vintage:       { label: { en: 'vintage', es: 'vintage' }, description: { en: 'soft sepia, warm and desaturated', es: 'sepia suave, desaturado y calido' } },
+  random:        { label: { en: 'random', es: 'random' }, description: { en: 'no constraints, pure chaos', es: 'sin restricciones, caos puro' } },
+};
+
+const NOISE_GROUPS = [
+  { labelKey: 'noiseGroupCharacter', types: ['pastel', 'neon', 'earthy', 'muted', 'dust', 'deep', 'bright'] },
+  { labelKey: 'noiseGroupHarmony', types: ['mono', 'analogous', 'complementary', 'split', 'triadic'] },
+  { labelKey: 'noiseGroupTemperature', types: ['cold', 'warm', 'ice', 'sunset'] },
+  { labelKey: 'noiseGroupContrast', types: ['contrast', 'shadow', 'pop'] },
+  { labelKey: 'noiseGroupExperimental', types: ['toxic', 'vintage', 'random'] },
+];
+
+function normalizeLanguage(input) {
+  if (typeof input !== 'string') return '';
+  const candidate = input.trim().toLowerCase().slice(0, 2);
+  return SUPPORTED_LANGUAGES.includes(candidate) ? candidate : '';
+}
+
+function detectLanguage() {
+  const queryLang = normalizeLanguage(new URLSearchParams(window.location.search).get('lang'));
+  if (queryLang) {
+    storage.set('lang', queryLang);
+    return queryLang;
+  }
+
+  const storedLang = normalizeLanguage(storage.get('lang'));
+  if (storedLang) return storedLang;
+
+  const docLang = normalizeLanguage(document.documentElement.lang);
+  if (docLang) return docLang;
+
+  const browserLang = normalizeLanguage(navigator.language);
+  if (browserLang) return browserLang;
+
+  return DEFAULT_LANGUAGE;
+}
+
+function t(key) {
+  const langPack = UI_TEXT[state.lang] || UI_TEXT[DEFAULT_LANGUAGE];
+  return langPack[key] || UI_TEXT[DEFAULT_LANGUAGE][key] || key;
+}
+
+function noiseLabel(type) {
+  const info = NOISE_INFO[type];
+  if (!info) return type;
+  return info.label[state.lang] || info.label[DEFAULT_LANGUAGE] || type;
+}
+
+function noiseDescription(type) {
+  const info = NOISE_INFO[type];
+  if (!info) return '';
+  return info.description[state.lang] || info.description[DEFAULT_LANGUAGE] || '';
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildNoiseTypeOptions() {
+  return NOISE_GROUPS.map((group) => {
+    const label = escapeHtml(t(group.labelKey));
+    const options = group.types.map((type) => {
+      const text = `${noiseLabel(type)} - ${noiseDescription(type)}`;
+      return `<option value="${type}">${escapeHtml(text)}</option>`;
+    }).join('');
+    return `<optgroup label="${label}">${options}</optgroup>`;
+  }).join('');
+}
+
+function updateMetaContent(selector, content) {
+  const node = document.querySelector(selector);
+  if (node) node.setAttribute('content', content);
+}
+
+function syncDocumentLocaleMeta() {
+  document.documentElement.lang = state.lang;
+  document.title = t('documentTitle');
+  updateMetaContent('meta[name="description"]', t('metaDescription'));
+  updateMetaContent('meta[property="og:title"]', t('documentTitle'));
+  updateMetaContent('meta[property="og:description"]', t('metaDescription'));
+  updateMetaContent('meta[name="twitter:title"]', t('documentTitle'));
+  updateMetaContent('meta[name="twitter:description"]', t('metaDescription'));
+}
+
+// ============================================
+// ESTADO GLOBAL
+// ============================================
 
 const state = {
+  lang: detectLanguage(),
   r: 128,
   g: 128,
   b: 128,
@@ -32,13 +205,13 @@ function persistValue(key, value) {
   const ok = storage.set(key, value);
   if (!ok && !storageWarningShown) {
     storageWarningShown = true;
-    toast('no se pudo guardar en el navegador', 2200);
+    toast(t('storageWarning'), 2200);
   }
   return ok;
 }
 
 function isKnownNoiseType(type) {
-  return Object.prototype.hasOwnProperty.call(noiseDescriptions, type);
+  return Object.prototype.hasOwnProperty.call(NOISE_INFO, type);
 }
 
 // Mantiene en sync el estado + controles (select y botón) del tipo de noise.
@@ -51,13 +224,13 @@ function setNoiseType(type, { persist = true, syncControls = true } = {}) {
     const noiseTypeSelect = document.getElementById('noiseType');
     const typeBtn = document.getElementById('typeBtn');
     if (noiseTypeSelect) noiseTypeSelect.value = state.noiseType;
-    if (typeBtn) typeBtn.textContent = state.noiseType;
+    if (typeBtn) typeBtn.textContent = noiseLabel(state.noiseType);
   }
   return true;
 }
 
 function randomNoiseType() {
-  const allTypes = Object.keys(noiseDescriptions);
+  const allTypes = Object.keys(NOISE_INFO);
   if (allTypes.length <= 1) return allTypes[0] || state.noiseType;
   const candidates = allTypes.filter((type) => type !== state.noiseType);
   return candidates[Math.floor(Math.random() * candidates.length)];
@@ -210,6 +383,7 @@ function resetHistoryWithFreshColor() {
 // ============================================
 async function init() {
   try {
+    syncDocumentLocaleMeta();
     state.htmlNamedColors = await fetchJson('./data/htmlNamedColors.json');
 
     loadHistory();
@@ -247,10 +421,10 @@ async function init() {
     // Posicionar el scroll instantáneamente (sin animación) al arrancar
     requestAnimationFrame(() => scrollHistoryToActive(false));
   } catch (error) {
-    console.error('Error al inicializar:', error);
+    console.error('Error initializing app:', error);
     const root = document.getElementById('colorPlayground');
     if (root) {
-      root.innerHTML = '<div class="panel">Error al cargar. Revisa la consola.</div>';
+      root.innerHTML = `<div class="panel">${t('loadErrorPanel')}</div>`;
     }
   }
 }
@@ -263,89 +437,58 @@ function renderUI() {
   const initialHex = rgbToHex([state.r, state.g, state.b]);
 
   main.innerHTML = `
-    <!-- HISTORIAL: fijo izquierda -->
+    <!-- History: fixed left -->
     <div class="historyCursor" aria-hidden="true">▶</div>
     <div class="historyPanel" id="historyPanel"></div>
 
     <div class="playgroundOuter">
 
-      <!-- NAV: arriba -->
-      <button class="historyNav historyNav--desktop" id="historyPrev" data-history-nav="prev" type="button" title="anterior">&#9650;</button>
+      <!-- Nav: top -->
+      <button class="historyNav historyNav--desktop" id="historyPrev" data-history-nav="prev" type="button" title="${t('historyPrevTitle')}" aria-label="${t('historyPrevTitle')}">&#9650;</button>
 
       <div class="playgroundColumn">
 
-        <!-- BLOQUE: Diales RGB + Reroll + Selector de colores + Noise -->
+        <!-- Block: RGB dials + reroll + named colors + noise -->
         <section class="playgroundBlock playgroundBlock--color">
           <div class="blockHeader">
             <div class="btnRow">
-              <button id="rerollBtn" class="btn btnSmall" type="button">new</button>
+              <button id="rerollBtn" class="btn btnSmall" type="button">${t('newLabel')}</button>
               <div class="btnSelect">
-                <button class="btn btnSmall" type="button">color by name</button>
-                <select id="namedColorSelect" class="btnSelectControl" aria-label="color by name">
-                  <option value="">color by name</option>
+                <button class="btn btnSmall" type="button">${t('colorByName')}</button>
+                <select id="namedColorSelect" class="btnSelectControl" aria-label="${t('colorByName')}">
+                  <option value="">${t('colorByName')}</option>
                 </select>
               </div>
               <div class="btnSelect">
-                <button id="typeBtn" class="btn btnSmall" type="button">${state.noiseType}</button>
-                <select id="noiseType" class="btnSelectControl" aria-label="noise type">
-                  <optgroup label="— carácter">
-                    <option value="pastel">pastel — suave, claro, desaturado</option>
-                    <option value="neon">neon — saturación máxima, muy vibrante</option>
-                    <option value="earthy">earthy — tierra, cálido, oscuro</option>
-                    <option value="muted">muted — grisáceo, editorial, quieto</option>
-                    <option value="dust">dust — polvorieto, pálido, casi gris</option>
-                    <option value="deep">deep — oscuro, rico, profundo</option>
-                    <option value="bright">bright — vivo, luminoso, enérgico</option>
-                  </optgroup>
-                  <optgroup label="— armonía cromática">
-                    <option value="mono">mono — monocromático, solo varía S y L</option>
-                    <option value="analogous">analogous — matices muy cercanos, armonioso</option>
-                    <option value="complementary">complementary — tu color y su opuesto</option>
-                    <option value="split">split — opuesto dividido, más sutil que complementary</option>
-                    <option value="triadic">triadic — tres zonas separadas 120°, equilibrado</option>
-                  </optgroup>
-                  <optgroup label="— temperatura">
-                    <option value="cold">cold — azules, cianes y violetas fríos</option>
-                    <option value="warm">warm — rojos, naranjas y amarillos cálidos</option>
-                    <option value="ice">ice — muy claro, cian, casi blanco frío</option>
-                    <option value="sunset">sunset — rosas, rojos y naranjas, ignora el base</option>
-                  </optgroup>
-                  <optgroup label="— contraste y estructura">
-                    <option value="contrast">contrast — alterna muy claro y muy oscuro</option>
-                    <option value="shadow">shadow — todo más oscuro que el color base</option>
-                    <option value="pop">pop — mezcla neon y pastel en el mismo grid</option>
-                  </optgroup>
-                  <optgroup label="— experimental">
-                    <option value="toxic">toxic — amarillos y verdes ácidos perturbadores</option>
-                    <option value="vintage">vintage — sepia suave, desaturado y cálido</option>
-                    <option value="random">random — sin restricciones, caos puro</option>
-                  </optgroup>
+                <button id="typeBtn" class="btn btnSmall" type="button">${noiseLabel(state.noiseType)}</button>
+                <select id="noiseType" class="btnSelectControl" aria-label="${t('noiseType')}">
+                  ${buildNoiseTypeOptions()}
                 </select>
               </div>
-              <button id="pasteBtn" class="btn btnSmall" type="button">paste</button>
-              <button id="resetHistoryBtn" class="btn btnSmall" type="button">fresh start</button>
+              <button id="pasteBtn" class="btn btnSmall" type="button">${t('paste')}</button>
+              <button id="resetHistoryBtn" class="btn btnSmall" type="button">${t('freshStart')}</button>
             </div>
           </div>
 
           <div class="dialGroup">
             <div class="dialRow">
               <label class="dialLabel" for="dialR">R</label>
-              <input id="dialR" class="dial" type="range" min="0" max="255" value="${state.r}" aria-label="Red"/>
+              <input id="dialR" class="dial" type="range" min="0" max="255" value="${state.r}" aria-label="${t('red')}"/>
               <output id="valR" class="dialValue mono">${state.r}</output>
             </div>
             <div class="dialRow">
               <label class="dialLabel" for="dialG">G</label>
-              <input id="dialG" class="dial" type="range" min="0" max="255" value="${state.g}" aria-label="Green"/>
+              <input id="dialG" class="dial" type="range" min="0" max="255" value="${state.g}" aria-label="${t('green')}"/>
               <output id="valG" class="dialValue mono">${state.g}</output>
             </div>
             <div class="dialRow">
               <label class="dialLabel" for="dialB">B</label>
-              <input id="dialB" class="dial" type="range" min="0" max="255" value="${state.b}" aria-label="Blue"/>
+              <input id="dialB" class="dial" type="range" min="0" max="255" value="${state.b}" aria-label="${t('blue')}"/>
               <output id="valB" class="dialValue mono">${state.b}</output>
             </div>
             <div class="dialRow">
-              <label class="dialLabel dialLabel--noise" for="noiseRange">random</label>
-              <input id="noiseRange" class="dial" type="range" min="0" max="100" value="${state.noise}" aria-label="Noise"/>
+              <label class="dialLabel dialLabel--noise" for="noiseRange">${t('randomLabel')}</label>
+              <input id="noiseRange" class="dial" type="range" min="0" max="100" value="${state.noise}" aria-label="${t('noise')}"/>
               <output id="valN" class="dialValue mono">${state.noise}</output>
             </div>
           </div>
@@ -355,19 +498,19 @@ function renderUI() {
 
       </div>
 
-      <!-- NAV: abajo -->
-      <button class="historyNav historyNav--desktop" id="historyNext" data-history-nav="next" type="button" title="siguiente">&#9660;</button>
+      <!-- Nav: bottom -->
+      <button class="historyNav historyNav--desktop" id="historyNext" data-history-nav="next" type="button" title="${t('historyNextTitle')}" aria-label="${t('historyNextTitle')}">&#9660;</button>
 
     </div>
 
-    <!-- Color info: en móvil incluye navegación lateral -->
+    <!-- Color info: mobile includes side navigation -->
     <div class="mobileColorNav">
-      <button class="historyNav historyNav--mobile" id="historyPrevMobile" data-history-nav="prev" type="button" title="anterior">&#9664;</button>
+      <button class="historyNav historyNav--mobile" id="historyPrevMobile" data-history-nav="prev" type="button" title="${t('historyPrevTitle')}" aria-label="${t('historyPrevTitle')}">&#9664;</button>
       <div id="colorInfo" class="colorInfo">
         <div id="infoHex" class="mono" data-copy>${initialHex}</div>
         <div id="infoRgb" class="mono">rgb(${state.r}, ${state.g}, ${state.b})</div>
       </div>
-      <button class="historyNav historyNav--mobile" id="historyNextMobile" data-history-nav="next" type="button" title="siguiente">&#9654;</button>
+      <button class="historyNav historyNav--mobile" id="historyNextMobile" data-history-nav="next" type="button" title="${t('historyNextTitle')}" aria-label="${t('historyNextTitle')}">&#9654;</button>
     </div>
   `;
 }
@@ -628,7 +771,7 @@ function attachEventListeners() {
   infoHex.addEventListener('click', async () => {
     const hex = infoHex.textContent;
     await copyText(hex);
-    toast(`copiado ${hex}`);
+    toast(`${t('copiedPrefix')} ${hex}`);
   });
 
   // Selector de colores por nombre
@@ -658,7 +801,7 @@ function attachEventListeners() {
 
   noiseType.addEventListener('change', () => {
     setNoiseType(noiseType.value, { persist: true, syncControls: true });
-    toast(`${state.noiseType} — ${noiseDescriptions[state.noiseType]}`, 2500);
+    toast(`${noiseLabel(state.noiseType)} - ${noiseDescription(state.noiseType)}`, 2500);
     const palette = buildPalette();
     renderPalette(palette);
     const hex = rgbToHex([state.r, state.g, state.b]);
@@ -675,10 +818,10 @@ function attachEventListeners() {
         text = '';
       }
     }
-    if (!text) text = prompt('Pega un color hex (#RGB o #RRGGBB):', '') || '';
+    if (!text) text = prompt(t('pastePrompt'), '') || '';
     const hex = parseHexInput(text);
     if (!hex) {
-      toast('hex invalido');
+      toast(t('invalidHex'));
       return;
     }
     applyHex(hex, true);
@@ -687,7 +830,7 @@ function attachEventListeners() {
   // Reiniciar historial y arrancar con un color nuevo
   document.getElementById('resetHistoryBtn').addEventListener('click', () => {
     resetHistoryWithFreshColor();
-    toast('historial reiniciado');
+    toast(t('historyReset'));
   });
 
   // Navegación historial
@@ -731,7 +874,7 @@ function attachEventListeners() {
   });
 
   noiseType.value = state.noiseType;
-  typeBtn.textContent = state.noiseType;
+  typeBtn.textContent = noiseLabel(state.noiseType);
 }
 
 // ============================================
@@ -815,12 +958,12 @@ function populateNamedColorSelect() {
   const select = document.getElementById('namedColorSelect');
   if (!state.htmlNamedColors || !state.htmlNamedColors.groups) return;
 
-  select.innerHTML = '<option value="">color by name</option>';
+  select.innerHTML = `<option value="">${escapeHtml(t('colorByName'))}</option>`;
 
   state.htmlNamedColors.groups.forEach(group => {
     if (!group.colors || group.colors.length === 0) return;
     const optgroup = document.createElement('optgroup');
-    optgroup.label = group.label || group.group || 'grupo';
+    optgroup.label = group.label || group.group || t('groupFallback');
     group.colors.forEach(color => {
       const option = document.createElement('option');
       option.value = color.hex;
@@ -1037,7 +1180,7 @@ function renderPalette(palette) {
 
     chip.addEventListener('click', async () => {
       await copyText(hex);
-      toast(`copiado ${hex}`);
+      toast(`${t('copiedPrefix')} ${hex}`);
       applyHex(hex, true);
     });
 
@@ -1058,31 +1201,6 @@ function getTextColor(hex) {
   const [r, g, b] = hexToRgb(hex);
   return isLight(r, g, b) ? '#111111' : '#ffffff';
 }
-
-const noiseDescriptions = {
-  pastel:        'suave, claro, desaturado',
-  neon:          'saturación máxima, muy vibrante',
-  earthy:        'tierra, cálido, oscuro',
-  muted:         'grisáceo, editorial, quieto',
-  dust:          'polvoriento, pálido, casi gris',
-  deep:          'oscuro, rico, profundo',
-  bright:        'vivo, luminoso, enérgico',
-  mono:          'monocromático, solo varía saturación y brillo',
-  analogous:     'matices muy cercanos, muy armonioso',
-  complementary: 'tu color y su opuesto en el círculo',
-  split:         'opuesto dividido, más sutil que complementary',
-  triadic:       'tres zonas separadas 120°, equilibrado',
-  cold:          'azules, cianes y violetas fríos',
-  warm:          'rojos, naranjas y amarillos cálidos',
-  ice:           'muy claro, cian, casi blanco frío',
-  sunset:        'rosas, rojos y naranjas, ignora el color base',
-  contrast:      'alterna muy claro y muy oscuro',
-  shadow:        'todo más oscuro que el color base',
-  pop:           'mezcla neon y pastel en el mismo grid',
-  toxic:         'amarillos y verdes ácidos perturbadores',
-  vintage:       'sepia suave, desaturado y cálido',
-  random:        'sin restricciones, caos puro',
-};
 
 // ============================================
 // ARRANQUE

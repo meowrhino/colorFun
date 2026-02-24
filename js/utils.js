@@ -54,12 +54,12 @@ export function hslToRgb([h,s,l]){
 }
 export async function copyText(text){
   try{ await navigator.clipboard.writeText(text); return true; }
-  catch(e){ try{ prompt('Copiar:', text); return true; } catch(_){ return false; } }
+  catch(e){ try{ prompt('Copy:', text); return true; } catch(_){ return false; } }
 }
 
 export async function fetchJson(url){
   const response = await fetch(url);
-  if(!response.ok) throw new Error(`HTTP ${response.status} en ${url}`);
+  if(!response.ok) throw new Error(`HTTP ${response.status} on ${url}`);
   return response.json();
 }
 
