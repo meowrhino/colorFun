@@ -1,4 +1,4 @@
-import { toast, copyText, hexToRgb } from '../js/utils.js';
+import { copyText, hexToRgb, publishLastColor, toast } from '../js/utils.js';
 
 export const id = 'htmlColorsWall';
 
@@ -71,7 +71,7 @@ export function mount(rootEl, ctx){
         e.stopPropagation();
         await copyText(c.hex);
         toast(`copiado ${c.hex}`);
-        ctx.storage.set('lastColor', c.hex);
+        publishLastColor({ hex: c.hex, source: id, storage: ctx.storage });
       });
       grid.appendChild(b);
     }

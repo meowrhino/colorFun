@@ -1,4 +1,5 @@
 import {
+  fetchJson,
   hexToRgb,
   rgbToHex,
   rgbToHsl,
@@ -13,6 +14,9 @@ import {
 // ESTADO GLOBAL
 // ============================================
 const storage = storageNS('colorPlayground');
+const HISTORY_LIMIT = 400;
+let storageWarningShown = false;
+
 const state = {
   r: 128,
   g: 128,
@@ -20,9 +24,71 @@ const state = {
   noise: 35,
   noiseType: 'pastel',
   htmlNamedColors: null,
-  history: [],      // [{color: '#RRGGBB', palette: ['#...', ...]}, ...]
+  history: [],      // [{color, palette, noiseType, noise}, ...]
   historyIndex: -1  // índice actual (-1 = sin historial)
 };
+
+function persistValue(key, value) {
+  const ok = storage.set(key, value);
+  if (!ok && !storageWarningShown) {
+    storageWarningShown = true;
+    toast('no se pudo guardar en el navegador', 2200);
+  }
+  return ok;
+}
+
+function isKnownNoiseType(type) {
+  return Object.prototype.hasOwnProperty.call(noiseDescriptions, type);
+}
+
+// Mantiene en sync el estado + controles (select y botón) del tipo de noise.
+function setNoiseType(type, { persist = true, syncControls = true } = {}) {
+  if (!isKnownNoiseType(type)) return false;
+  state.noiseType = type;
+  if (persist) persistValue('noiseType', state.noiseType);
+
+  if (syncControls) {
+    const noiseTypeSelect = document.getElementById('noiseType');
+    const typeBtn = document.getElementById('typeBtn');
+    if (noiseTypeSelect) noiseTypeSelect.value = state.noiseType;
+    if (typeBtn) typeBtn.textContent = state.noiseType;
+  }
+  return true;
+}
+
+function randomNoiseType() {
+  const allTypes = Object.keys(noiseDescriptions);
+  if (allTypes.length <= 1) return allTypes[0] || state.noiseType;
+  const candidates = allTypes.filter((type) => type !== state.noiseType);
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+function randomizeNoiseType(options = { persist: true, syncControls: true }) {
+  return setNoiseType(randomNoiseType(), options);
+}
+
+function setNoiseAmount(value, { persist = true, syncControls = true } = {}) {
+  const numeric = Number(value);
+  const safeValue = Number.isFinite(numeric) ? Math.round(numeric) : 35;
+  state.noise = clamp(safeValue, 0, 100);
+  if (persist) persistValue('noise', state.noise);
+
+  if (syncControls) {
+    const noiseRange = document.getElementById('noiseRange');
+    const noiseValue = document.getElementById('valN');
+    if (noiseRange) noiseRange.value = state.noise;
+    if (noiseValue) noiseValue.textContent = state.noise;
+  }
+  return state.noise;
+}
+
+function randomNoiseAmount() {
+  return Math.floor(Math.random() * 101);
+}
+
+function randomizeNoiseAmount(options = { persist: true, syncControls: true }) {
+  return setNoiseAmount(randomNoiseAmount(), options);
+}
 
 // ============================================
 // HISTORIAL
@@ -32,10 +98,25 @@ function saveToHistory(hex, palette) {
   // al guardar un nuevo color nos movemos al final
   // (no borramos lo que hay después, solo añadimos al final)
   const prevLen = state.history.length;
-  const entry = { color: hex, palette: [...palette] };
+  const entry = {
+    color: hex,
+    palette: [...palette],
+    noiseType: state.noiseType,
+    noise: state.noise,
+  };
   state.history.push(entry);
   state.historyIndex = state.history.length - 1;
+  const overflow = Math.max(0, state.history.length - HISTORY_LIMIT);
+  if (overflow > 0) {
+    state.history.splice(0, overflow);
+    state.historyIndex = Math.max(0, state.historyIndex - overflow);
+  }
   persistHistory();
+
+  if (overflow > 0) {
+    renderHistoryList();
+    return;
+  }
 
   const panel = document.getElementById('historyPanel');
   if (panel) {
@@ -50,34 +131,60 @@ function saveToHistory(hex, palette) {
 }
 
 function persistHistory() {
-  storage.set('history', state.history);
-  storage.set('historyIndex', state.historyIndex);
+  persistValue('history', state.history);
+  persistValue('historyIndex', state.historyIndex);
+}
+
+function sanitizeHistory(rawHistory) {
+  if (!Array.isArray(rawHistory)) return [];
+  return rawHistory
+    .filter((entry) => entry && typeof entry.color === 'string' && Array.isArray(entry.palette))
+    .map((entry) => ({
+      color: entry.color,
+      palette: entry.palette.slice(0, 9),
+      noiseType: isKnownNoiseType(entry.noiseType) ? entry.noiseType : 'pastel',
+      noise: clamp(Number.isFinite(Number(entry.noise)) ? Math.round(Number(entry.noise)) : 35, 0, 100),
+    }))
+    .filter((entry) => entry.palette.length === 9);
 }
 
 function loadHistory() {
-  const saved = storage.get('history');
-  state.history = Array.isArray(saved) ? saved : [];
+  const saved = sanitizeHistory(storage.get('history'));
+  state.history = saved.slice(-HISTORY_LIMIT);
   const idx = storage.get('historyIndex');
-  state.historyIndex = typeof idx === 'number' ? idx : state.history.length - 1;
+  const fallback = state.history.length - 1;
+  const rawIndex = typeof idx === 'number' ? idx : fallback;
+  state.historyIndex = clamp(Math.trunc(rawIndex), -1, fallback);
 }
 
 function navigateHistory(delta) {
   const newIndex = state.historyIndex + delta;
-  if (newIndex < 0 || newIndex >= state.history.length) return;
-  state.historyIndex = newIndex;
-  const entry = state.history[newIndex];
-  const [r, g, b] = hexToRgb(entry.color);
-  state.r = r;
-  state.g = g;
-  state.b = b;
-  persistHistory();
-  updateColor(entry.palette); // restaura paleta exacta
+  if (!selectHistoryIndex(newIndex, { scrollToActive: true })) return;
   if (!setActiveHistoryRow(state.historyIndex)) {
     renderHistoryList();
     return;
   }
+}
+
+function selectHistoryIndex(index, { scrollToActive = false, animated = true } = {}) {
+  if (index < 0 || index >= state.history.length) return false;
+  state.historyIndex = index;
+
+  // Unifica la restauración de estado al navegar por historial.
+  const entry = state.history[index];
+  setNoiseType(entry.noiseType, { persist: true, syncControls: true });
+  setNoiseAmount(entry.noise, { persist: true, syncControls: true });
+  const [r, g, b] = hexToRgb(entry.color);
+  state.r = r;
+  state.g = g;
+  state.b = b;
+
+  persistHistory();
+  updateColor(entry.palette); // restaura paleta exacta
+  setActiveHistoryRow(index);
   updateHistoryNavButtons();
-  scrollHistoryToActive(true);
+  if (scrollToActive) scrollHistoryToActive(animated);
+  return true;
 }
 
 function resetHistoryWithFreshColor() {
@@ -90,6 +197,9 @@ function resetHistoryWithFreshColor() {
   _scrollLockSeq += 1;
   _programmaticScroll = false;
 
+  // Fresh start también refresca el carácter de paleta.
+  randomizeNoiseType();
+  randomizeNoiseAmount();
   const randomColor = Math.floor(Math.random() * 0xffffff);
   const hex = '#' + randomColor.toString(16).padStart(6, '0').toUpperCase();
   applyHex(hex, true);
@@ -100,17 +210,23 @@ function resetHistoryWithFreshColor() {
 // ============================================
 async function init() {
   try {
-    const response = await fetch('./data/htmlNamedColors.json');
-    const data = await response.json();
-    state.htmlNamedColors = data;
+    state.htmlNamedColors = await fetchJson('./data/htmlNamedColors.json');
 
     loadHistory();
 
     // Restaurar noise y noiseType de la sesión anterior
     const savedNoise = storage.get('noise');
     const savedNoiseType = storage.get('noiseType');
-    if (typeof savedNoise === 'number') state.noise = savedNoise;
-    if (typeof savedNoiseType === 'string') state.noiseType = savedNoiseType;
+    if (typeof savedNoise === 'number') {
+      setNoiseAmount(savedNoise, { persist: false, syncControls: false });
+    }
+    if (typeof savedNoiseType === 'string') {
+      setNoiseType(savedNoiseType, { persist: false, syncControls: false });
+    }
+
+    // En cada carga, refresca el carácter de la paleta (tipo + intensidad).
+    randomizeNoiseType({ persist: true, syncControls: false });
+    randomizeNoiseAmount({ persist: true, syncControls: false });
 
     // Siempre arranca con un color random nuevo
     const seed = Math.floor(Math.random() * 0xffffff);
@@ -132,8 +248,10 @@ async function init() {
     requestAnimationFrame(() => scrollHistoryToActive(false));
   } catch (error) {
     console.error('Error al inicializar:', error);
-    document.getElementById('colorPlayground').innerHTML =
-      '<div class="panel">Error al cargar. Revisa la consola.</div>';
+    const root = document.getElementById('colorPlayground');
+    if (root) {
+      root.innerHTML = '<div class="panel">Error al cargar. Revisa la consola.</div>';
+    }
   }
 }
 
@@ -461,21 +579,8 @@ function activateItemAtArrow() {
   const idx = Number(closest.dataset.index);
   if (idx === state.historyIndex) return; // ya es el activo
 
-  // Activar el nuevo item
-  state.historyIndex = idx;
-  const entry = state.history[idx];
-  const [r, g, b] = hexToRgb(entry.color);
-  state.r = r;
-  state.g = g;
-  state.b = b;
-  persistHistory();
-  updateColor(entry.palette);
-
-  // Actualizar clases visuales sin re-renderizar (sin mover el scroll)
-  setActiveHistoryRow(idx);
-
-  // Actualizar botones
-  updateHistoryNavButtons();
+  // Activar el nuevo item sin animar scroll: el usuario lo está controlando.
+  selectHistoryIndex(idx, { scrollToActive: false });
 }
 
 // ============================================
@@ -511,6 +616,8 @@ function attachEventListeners() {
 
   // Botón Reroll
   document.getElementById('rerollBtn').addEventListener('click', () => {
+    randomizeNoiseType();
+    randomizeNoiseAmount();
     const randomColor = Math.floor(Math.random() * 0xffffff);
     const hex = '#' + randomColor.toString(16).padStart(6, '0').toUpperCase();
     applyHex(hex, true);
@@ -538,9 +645,7 @@ function attachEventListeners() {
   const typeBtn = document.getElementById('typeBtn');
 
   noiseRange.addEventListener('input', () => {
-    state.noise = Number(noiseRange.value);
-    document.getElementById('valN').textContent = state.noise;
-    storage.set('noise', state.noise);
+    setNoiseAmount(noiseRange.value, { persist: true, syncControls: true });
     const palette = buildPalette();
     renderPalette(palette);
   });
@@ -552,9 +657,7 @@ function attachEventListeners() {
   });
 
   noiseType.addEventListener('change', () => {
-    state.noiseType = noiseType.value;
-    typeBtn.textContent = state.noiseType;
-    storage.set('noiseType', state.noiseType);
+    setNoiseType(noiseType.value, { persist: true, syncControls: true });
     toast(`${state.noiseType} — ${noiseDescriptions[state.noiseType]}`, 2500);
     const palette = buildPalette();
     renderPalette(palette);
@@ -606,17 +709,7 @@ function attachEventListeners() {
     if (!Number.isInteger(idx) || idx < 0 || idx >= state.history.length) return;
     if (idx === state.historyIndex) return;
 
-    state.historyIndex = idx;
-    const entry = state.history[idx];
-    const [r, g, b] = hexToRgb(entry.color);
-    state.r = r;
-    state.g = g;
-    state.b = b;
-    persistHistory();
-    updateColor(entry.palette);
-    setActiveHistoryRow(idx);
-    updateHistoryNavButtons();
-    scrollHistoryToActive(true);
+    selectHistoryIndex(idx, { scrollToActive: true });
   });
   historyPanel.addEventListener('scroll', () => {
     if (_programmaticScroll) return; // ignorar nuestros propios scrolls
@@ -657,7 +750,7 @@ function updateColor(palette) {
   const hex = rgbToHex([state.r, state.g, state.b]);
 
   // Mantener compatibilidad con otros módulos/juegos que leen lastColor.
-  storage.set('lastColor', hex);
+  persistValue('lastColor', hex);
 
   // Actualizar displays
   const infoHex = document.getElementById('infoHex');

@@ -419,9 +419,10 @@ button, input, select, textarea {
   /* Playground: columna vertical, centrado */
   .playground {
     padding: 16px 12px 20px;
-    min-height: auto;
+    min-height: 100svh;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
   }
 
   .playgroundOuter {
@@ -456,7 +457,7 @@ button, input, select, textarea {
   }
 
   .btnRow {
-    justify-content: center;
+    justify-content: flex-end;
     gap: 6px;
   }
 

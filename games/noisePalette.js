@@ -1,7 +1,15 @@
-import { toast, copyText, hexToRgb, rgbToHex, rgbToHsl, hslToRgb, clamp } from '../js/utils.js';
+import {
+  clamp,
+  copyText,
+  hexToRgb,
+  publishLastColor,
+  rgbToHex,
+  rgbToHsl,
+  hslToRgb,
+  toast,
+} from '../js/utils.js';
 
 export const id = 'noisePalette';
-const COLOR_EVENT = 'colorfun:lastColor';
 
 export function mount(rootEl, ctx){
   const state = {
@@ -11,6 +19,8 @@ export function mount(rootEl, ctx){
     palette: [],
     base: ctx.storage.get('lastColor', '#808080')
   };
+  const cleanups = [];
+  const addCleanup = (fn)=> cleanups.push(fn);
 
   rootEl.classList.add('noiseRoot');
   if(ctx.mode === 'mini') rootEl.classList.add('noiseMini');
@@ -125,7 +135,7 @@ export function mount(rootEl, ctx){
         e.preventDefault(); e.stopPropagation();
         await copyText(hex);
         toast(`copiado ${hex}`);
-        ctx.storage.set('lastColor', hex);
+        publishLastColor({ hex, source: id, storage: ctx.storage });
       });
       grid.appendChild(b);
     }
@@ -134,8 +144,7 @@ export function mount(rootEl, ctx){
   function reroll(newBase = false){
     const base = newBase ? randomHex() : null;
     if(base){
-      ctx.storage.set('lastColor', base);
-      window.dispatchEvent(new CustomEvent(COLOR_EVENT, { detail: { hex: base, source: id } }));
+      publishLastColor({ hex: base, source: id, storage: ctx.storage });
     }
     gen(base || undefined);
     render();
@@ -150,8 +159,13 @@ export function mount(rootEl, ctx){
   if(ctx.mode === 'full'){
     const onKey = (e)=>{ if(e.code === 'Space'){ e.preventDefault(); reroll(); } };
     window.addEventListener('keydown', onKey);
-    rootEl.__cleanup = ()=> window.removeEventListener('keydown', onKey);
+    addCleanup(()=> window.removeEventListener('keydown', onKey));
   }
+
+  rootEl.__cleanup = ()=> {
+    for(const fn of cleanups) fn();
+    cleanups.length = 0;
+  };
 }
 
 export function unmount(rootEl){ if(rootEl.__cleanup) rootEl.__cleanup(); }

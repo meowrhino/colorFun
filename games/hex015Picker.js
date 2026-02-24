@@ -1,35 +1,40 @@
-import { toast, copyText, clamp, hexToRgb } from '../js/utils.js';
+import {
+  LAST_COLOR_EVENT,
+  clamp,
+  copyText,
+  hexToRgb,
+  normalizeHex,
+  publishLastColor,
+  toast,
+} from '../js/utils.js';
 
 export const id = 'hex015Picker';
-const COLOR_EVENT = 'colorfun:lastColor';
 
-export function mount(rootEl, ctx){
-  const groups = (ctx.data.htmlNamed?.groups || []).map(g=>({value:g.group,label:g.label, colors:g.colors}));
-
-  function normalizeHex(hex){
-    const raw = String(hex || '').replace('#','').trim();
-    if(raw.length === 3){
-      const h = raw.toUpperCase();
-      return `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}`;
-    }
-    if(raw.length === 6) return `#${raw.toUpperCase()}`;
-    return '#808080';
-  }
-
-  function hexByte(n){ return clamp(n,0,255).toString(16).padStart(2,'0').toUpperCase(); }
+export function mount(rootEl, ctx) {
+  const groups = (ctx.data.htmlNamed?.groups || []).map((g) => ({
+    value: g.group,
+    label: g.label,
+    colors: g.colors,
+  }));
 
   const seedHex = normalizeHex(ctx.storage.get('lastColor', '#808080'));
   const [seedR, seedG, seedB] = hexToRgb(seedHex);
   const state = {
-    r: seedR, g: seedG, b: seedB,
+    r: seedR,
+    g: seedG,
+    b: seedB,
     wordsMode: false,
-    group: '',
-    lastColor: seedHex
+    lastColor: seedHex,
   };
+
+  const cleanups = [];
+  const addCleanup = (fn) => cleanups.push(fn);
+  let suppressBroadcast = false;
 
   rootEl.classList.add('pickerRoot');
   const isMini = ctx.mode === 'mini';
-  if(isMini) rootEl.classList.add('pickerRoot--mini');
+  if (isMini) rootEl.classList.add('pickerRoot--mini');
+
   rootEl.innerHTML = `
     <div class="pickerBody">
       <div class="pickerGroup pickerGroup--hex pickerHexWrap" data-hex-wrap>
@@ -95,36 +100,43 @@ export function mount(rootEl, ctx){
   const selGroup = rootEl.querySelector('[data-group]');
   const selColor = rootEl.querySelector('[data-color]');
 
-  for(const gr of groups){
+  for (const gr of groups) {
     const opt = document.createElement('option');
     opt.value = gr.value;
     opt.textContent = gr.label;
     selGroup.appendChild(opt);
   }
 
-  function applyTone(hex){
-    if(isMini){
+  function hexByte(n) {
+    return clamp(n, 0, 255).toString(16).padStart(2, '0').toUpperCase();
+  }
+
+  function applyTone(hex) {
+    if (isMini) {
       document.body.style.backgroundColor = hex;
       rootEl.style.background = 'transparent';
-    }else{
+    } else {
       rootEl.style.background = hex;
     }
-    const [rr,gg,bb] = hexToRgb(hex);
+
+    const [rr, gg, bb] = hexToRgb(hex);
     const lum = (rr * 0.299 + gg * 0.587 + bb * 0.114);
     const isLight = lum > 165;
+
     rootEl.style.color = isLight ? '#111111' : '#ffffff';
     rootEl.style.setProperty('--picker-control-bg', isLight ? 'rgba(255,255,255,.7)' : 'rgba(0,0,0,.3)');
     rootEl.style.setProperty('--picker-group-bg', isLight ? 'rgba(255,255,255,.4)' : 'rgba(0,0,0,.35)');
     rootEl.style.setProperty('--picker-switch-bg', isLight ? 'rgba(0,0,0,.25)' : 'rgba(255,255,255,.25)');
     rootEl.style.setProperty('--picker-switch-on', isLight ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.7)');
     rootEl.style.setProperty('--picker-switch-knob', isLight ? '#ffffff' : '#111111');
-    if(hexWrap){
+
+    if (hexWrap) {
       const inHeader = topbarRight && hexWrap.parentElement === topbarRight;
       hexWrap.style.color = inHeader ? '#111111' : (isLight ? '#111111' : '#ffffff');
     }
   }
 
-  function syncDialsFromState(){
+  function syncDialsFromState() {
     r.value = state.r;
     g.value = state.g;
     b.value = state.b;
@@ -133,99 +145,120 @@ export function mount(rootEl, ctx){
     bv.textContent = state.b;
   }
 
-  function render(){
+  function render() {
     let currentHex = '';
-    if(!state.wordsMode){
+    if (!state.wordsMode) {
       currentHex = `#${hexByte(state.r)}${hexByte(state.g)}${hexByte(state.b)}`;
-      syncDialsFromState();
-      elCopy.textContent = currentHex;
-      elExpanded.textContent = `rgb(${state.r}, ${state.g}, ${state.b})`;
-      applyTone(currentHex);
       state.lastColor = currentHex;
-      ctx.storage.set('lastColor', currentHex);
-    }else{
+    } else {
       currentHex = normalizeHex(state.lastColor || '#222222');
-      const [rr,gg,bb] = hexToRgb(currentHex);
+      const [rr, gg, bb] = hexToRgb(currentHex);
       state.r = rr;
       state.g = gg;
       state.b = bb;
-      syncDialsFromState();
-      elCopy.textContent = currentHex;
-      elExpanded.textContent = `rgb(${state.r}, ${state.g}, ${state.b})`;
-      applyTone(currentHex);
+    }
+
+    syncDialsFromState();
+    elCopy.textContent = currentHex;
+    elExpanded.textContent = `rgb(${state.r}, ${state.g}, ${state.b})`;
+    applyTone(currentHex);
+
+    if (!suppressBroadcast) {
+      publishLastColor({ hex: currentHex, source: id, storage: ctx.storage });
     }
   }
 
-  async function copyCurrent(){
-    const v = elCopy.textContent || '';
-    await copyText(v);
-    toast(`copiado ${v}`);
+  async function copyCurrent() {
+    const value = elCopy.textContent || '';
+    await copyText(value);
+    toast(`copiado ${value}`);
   }
 
-  elCopy.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); copyCurrent(); });
+  elCopy.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    copyCurrent();
+  });
 
-  if(ctx.mode === 'full' && topbarRight && hexWrap){
+  if (ctx.mode === 'full' && topbarRight && hexWrap) {
     hexWrap.classList.add('pickerHexWrap--header');
     elCopy.classList.add('pickerHex--header');
     topbarRight.appendChild(hexWrap);
   }
 
-  function onExternalColor(e){
-    if(e.detail?.source === id) return;
-    const nextHex = normalizeHex(e.detail?.hex);
-    if(!nextHex) return;
+  function onExternalColor(e) {
+    if (e.detail?.source === id) return;
+    const nextHex = normalizeHex(e.detail?.hex, null);
+    if (!nextHex) return;
+
     state.lastColor = nextHex;
-    const [rr,gg,bb] = hexToRgb(nextHex);
+    const [rr, gg, bb] = hexToRgb(nextHex);
     state.r = rr;
     state.g = gg;
     state.b = bb;
-    render();
-  }
-  window.addEventListener(COLOR_EVENT, onExternalColor);
 
-  const onDial = ()=>{
+    suppressBroadcast = true;
+    render();
+    suppressBroadcast = false;
+  }
+
+  window.addEventListener(LAST_COLOR_EVENT, onExternalColor);
+  addCleanup(() => window.removeEventListener(LAST_COLOR_EVENT, onExternalColor));
+
+  const onDial = () => {
     state.r = Number(r.value);
     state.g = Number(g.value);
     state.b = Number(b.value);
     render();
   };
-  r.addEventListener('input', (e)=>{ e.stopPropagation(); onDial(); });
-  g.addEventListener('input', (e)=>{ e.stopPropagation(); onDial(); });
-  b.addEventListener('input', (e)=>{ e.stopPropagation(); onDial(); });
 
-  elWords.addEventListener('change', (e)=>{
+  r.addEventListener('input', (e) => { e.stopPropagation(); onDial(); });
+  g.addEventListener('input', (e) => { e.stopPropagation(); onDial(); });
+  b.addEventListener('input', (e) => { e.stopPropagation(); onDial(); });
+
+  elWords.addEventListener('change', (e) => {
     e.stopPropagation();
     state.wordsMode = elWords.checked;
-    for(const inp of [r,g,b]) inp.disabled = state.wordsMode;
+    for (const input of [r, g, b]) input.disabled = state.wordsMode;
     elDials.style.opacity = state.wordsMode ? '0.35' : '1';
     wordsPanel.style.display = state.wordsMode ? 'grid' : 'none';
     render();
   });
 
-  selGroup.addEventListener('change', (e)=>{
+  selGroup.addEventListener('change', (e) => {
     e.stopPropagation();
-    const gv = selGroup.value;
+    const groupValue = selGroup.value;
     selColor.innerHTML = '<option value="">elige color</option>';
-    selColor.disabled = !gv;
-    if(!gv) return;
-    const group = groups.find(x=>x.value===gv);
-    if(!group) return;
-    for(const c of group.colors){
+    selColor.disabled = !groupValue;
+    if (!groupValue) return;
+
+    const group = groups.find((x) => x.value === groupValue);
+    if (!group) return;
+
+    for (const color of group.colors) {
       const opt = document.createElement('option');
-      opt.value = c.hex;
-      opt.textContent = c.name;
+      opt.value = color.hex;
+      opt.textContent = color.name;
       selColor.appendChild(opt);
     }
   });
 
-  selColor.addEventListener('change', (e)=>{
+  selColor.addEventListener('change', (e) => {
     e.stopPropagation();
     const hex = selColor.value;
-    if(!hex) return;
+    if (!hex) return;
     state.lastColor = hex;
-    ctx.storage.set('lastColor', hex);
     render();
   });
 
+  rootEl.__cleanup = () => {
+    for (const fn of cleanups) fn();
+    cleanups.length = 0;
+  };
+
   render();
+}
+
+export function unmount(rootEl) {
+  if (typeof rootEl.__cleanup === 'function') rootEl.__cleanup();
 }

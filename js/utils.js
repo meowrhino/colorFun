@@ -1,4 +1,5 @@
 export function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+export const LAST_COLOR_EVENT = 'colorfun:lastColor';
 
 export function hexToRgb(hex){
   const h = hex.replace('#','').trim();
@@ -56,6 +57,34 @@ export async function copyText(text){
   try{ await navigator.clipboard.writeText(text); return true; }
   catch(e){ try{ prompt('Copiar:', text); return true; } catch(_){ return false; } }
 }
+
+export function normalizeHex(hex, fallback = '#808080'){
+  const raw = String(hex || '').replace('#','').trim();
+  if(raw.length === 3){
+    const h = raw.toUpperCase();
+    return `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}`;
+  }
+  if(raw.length === 6 && /^[0-9a-fA-F]{6}$/.test(raw)) return `#${raw.toUpperCase()}`;
+  return fallback;
+}
+
+export async function fetchJson(url){
+  const response = await fetch(url);
+  if(!response.ok) throw new Error(`HTTP ${response.status} en ${url}`);
+  return response.json();
+}
+
+export function publishLastColor({ hex, source = 'unknown', storage = null }){
+  // Canonicaliza, persiste y publica un único evento compartido entre módulos.
+  const normalized = normalizeHex(hex, null);
+  if(!normalized) return null;
+  if(storage?.set) storage.set('lastColor', normalized);
+  if(typeof window !== 'undefined'){
+    window.dispatchEvent(new CustomEvent(LAST_COLOR_EVENT, { detail: { hex: normalized, source } }));
+  }
+  return normalized;
+}
+
 export function toast(msg, ms=900){
   const el = document.getElementById('toast');
   if(!el) return;
@@ -73,7 +102,12 @@ export function storageNS(ns){
       }catch(e){ return fallback; }
     },
     set(key, value){
-      try{ localStorage.setItem(`${ns}:${key}`, JSON.stringify(value)); }catch(e){}
+      try{
+        localStorage.setItem(`${ns}:${key}`, JSON.stringify(value));
+        return true;
+      }catch(e){
+        return false;
+      }
     }
   };
 }
