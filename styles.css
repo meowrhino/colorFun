@@ -79,6 +79,10 @@ button, input, select, textarea {
   cursor: default;
 }
 
+.historyNav--mobile {
+  display: none;
+}
+
 /* ============================================
    HISTORIAL — fijo izquierda, ocupa toda la altura
    ============================================ */
@@ -327,6 +331,10 @@ button, input, select, textarea {
   cursor: pointer;
 }
 
+.mobileColorNav {
+  width: 100%;
+}
+
 /* ============================================
    TOAST
    ============================================ */
@@ -519,12 +527,21 @@ button, input, select, textarea {
   }
 
   /* Color info: centrado, fluye debajo del historial */
+  .mobileColorNav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 16px;
+    order: 3;
+  }
+
   .colorInfo {
     position: static;
     text-align: center;
-    margin-top: 16px;
+    margin-top: 0;
     font-size: 11px;
-    order: 3;
+    order: initial;
   }
 
   /* Firma: centrada, fluye debajo */
@@ -538,8 +555,16 @@ button, input, select, textarea {
     order: 4;
   }
 
-  /* Nav flechas: ocultas en móvil */
-  .historyNav {
+  .historyNav--desktop {
     display: none;
+  }
+
+  .historyNav--mobile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 30px;
+    padding: 4px 8px;
   }
 }

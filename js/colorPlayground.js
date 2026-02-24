@@ -152,7 +152,7 @@ function renderUI() {
     <div class="playgroundOuter">
 
       <!-- NAV: arriba -->
-      <button class="historyNav" id="historyPrev" type="button" title="anterior">&#9650;</button>
+      <button class="historyNav historyNav--desktop" id="historyPrev" data-history-nav="prev" type="button" title="anterior">&#9650;</button>
 
       <div class="playgroundColumn">
 
@@ -238,14 +238,18 @@ function renderUI() {
       </div>
 
       <!-- NAV: abajo -->
-      <button class="historyNav" id="historyNext" type="button" title="siguiente">&#9660;</button>
+      <button class="historyNav historyNav--desktop" id="historyNext" data-history-nav="next" type="button" title="siguiente">&#9660;</button>
 
     </div>
 
-    <!-- Color info: fuera de playgroundOuter para que order funcione en móvil -->
-    <div id="colorInfo" class="colorInfo">
-      <div id="infoHex" class="mono" data-copy>${initialHex}</div>
-      <div id="infoRgb" class="mono">rgb(${state.r}, ${state.g}, ${state.b})</div>
+    <!-- Color info: en móvil incluye navegación lateral -->
+    <div class="mobileColorNav">
+      <button class="historyNav historyNav--mobile" id="historyPrevMobile" data-history-nav="prev" type="button" title="anterior">&#9664;</button>
+      <div id="colorInfo" class="colorInfo">
+        <div id="infoHex" class="mono" data-copy>${initialHex}</div>
+        <div id="infoRgb" class="mono">rgb(${state.r}, ${state.g}, ${state.b})</div>
+      </div>
+      <button class="historyNav historyNav--mobile" id="historyNextMobile" data-history-nav="next" type="button" title="siguiente">&#9654;</button>
     </div>
   `;
 }
@@ -303,10 +307,15 @@ function setActiveHistoryRow(index) {
 }
 
 function updateHistoryNavButtons() {
-  const prevBtn = document.getElementById('historyPrev');
-  const nextBtn = document.getElementById('historyNext');
-  if (prevBtn) prevBtn.disabled = state.historyIndex <= 0;
-  if (nextBtn) nextBtn.disabled = state.historyIndex >= state.history.length - 1;
+  const prevDisabled = state.historyIndex <= 0;
+  const nextDisabled = state.historyIndex >= state.history.length - 1;
+
+  document.querySelectorAll('[data-history-nav="prev"]').forEach((btn) => {
+    btn.disabled = prevDisabled;
+  });
+  document.querySelectorAll('[data-history-nav="next"]').forEach((btn) => {
+    btn.disabled = nextDisabled;
+  });
 }
 
 function syncHistorySpacer(panel) {
@@ -579,8 +588,12 @@ function attachEventListeners() {
   });
 
   // Navegación historial
-  document.getElementById('historyPrev').addEventListener('click', () => navigateHistory(-1));
-  document.getElementById('historyNext').addEventListener('click', () => navigateHistory(1));
+  document.querySelectorAll('[data-history-nav="prev"]').forEach((btn) => {
+    btn.addEventListener('click', () => navigateHistory(-1));
+  });
+  document.querySelectorAll('[data-history-nav="next"]').forEach((btn) => {
+    btn.addEventListener('click', () => navigateHistory(1));
+  });
 
   // Scroll interactivo: cuando el usuario scrollea el panel,
   // el item alineado con la flecha ▶ (fondo del panel) se activa
