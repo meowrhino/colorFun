@@ -332,7 +332,7 @@ button, input, select, textarea {
 }
 
 .mobileColorNav {
-  width: 100%;
+  display: contents;
 }
 
 /* ============================================
